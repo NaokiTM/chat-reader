@@ -66,7 +66,7 @@ export default function HomeScreen() {
         </Text>
       </ScrollView>
       {showBar && (
-        <View style={[styles.popup, { paddingBottom: insets.bottom + 10 }]}>
+        <View style={styles.popup}>
           <Pressable style={styles.arrow}>
             <Text style={styles.arrowText}>← Prev</Text>
           </Pressable>
@@ -75,8 +75,8 @@ export default function HomeScreen() {
             <Text style={styles.arrowText}>Next →</Text>
           </Pressable>
         </View>
-     )}
-     </View>
+      )}
+      </View>
   );
 }
 
@@ -93,21 +93,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 12,
   },
+
   popup: {
     position: "absolute",
-    bottom: 0,
     left: 0,
     right: 0,
+    bottom: 0,
 
     flexDirection: "row",
     justifyContent: "space-between",
 
     backgroundColor: "#111",
+
     paddingHorizontal: 20,
     paddingTop: 12,
-
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    paddingBottom: 12,
+    
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
   },
 
   arrow: {
@@ -116,6 +119,6 @@ const styles = StyleSheet.create({
 
   arrowText: {
     color: "white",
-    fontSize: 16,
+    fontSize: 20,
   },
 });
