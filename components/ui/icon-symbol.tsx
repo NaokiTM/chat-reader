@@ -20,6 +20,8 @@ const MAPPING = {
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
   'gear.fill': 'settings',
+  'book.fill': 'menu-book',
+  'glasses': 'visibility',
 } as unknown as IconMapping;
 
 /**
