@@ -10,7 +10,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Fonts } from '@/constants/theme';
 import { SafeAreaView} from 'react-native-safe-area-context';
 
-const books = Array.from({ length: 20 }).map((_, i) => ({
+const books = Array.from({ length: 10 }).map((_, i) => ({
   id: String(i),
   title: `Book ${i + 1}`,
 }));
