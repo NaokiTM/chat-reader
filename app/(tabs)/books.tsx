@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { FlatList, Platform,  Pressable,  StyleSheet, Text } from 'react-native';
+import { Button, FlatList, Platform,  Pressable,  StyleSheet, Text, View } from 'react-native';
 
 import { Collapsible } from '@/components/ui/collapsible';
 import { ExternalLink } from '@/components/external-link';
@@ -18,6 +18,8 @@ const books = Array.from({ length: 10 }).map((_, i) => ({
 export default function TabTwoScreen() {
   return (
     <SafeAreaView style={styles.container}>
+
+      {/* FOR WHEN I WANT TO IMPORT REAL BOOKS */}
       {/* <FlatList
         data={books}
         numColumns={2}
@@ -32,6 +34,16 @@ export default function TabTwoScreen() {
           </Pressable>
         )}
       /> */}
+
+      <View style={styles.addBookButton}>
+        <View>
+          <Text>My Books</Text>
+        </View>
+
+        <Pressable style={styles.squareButton}>
+          <Text style={styles.buttonText}>+</Text>
+        </Pressable>
+      </View>
       <FlatList
         data={books}
         keyExtractor={(item) => item.id}
@@ -69,5 +81,27 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+  addBookButton: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+  },
+
+  squareButton: {
+    width: 40,
+    height: 40,
+
+    borderRadius: 8,
+
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  buttonText: {
+    color: "white",
+    fontSize: 30,
+    fontWeight: "bold",
   },
 });
