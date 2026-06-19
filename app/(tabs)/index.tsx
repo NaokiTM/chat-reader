@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { Platform, ScrollView, StyleSheet, Text } from 'react-native';  
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';  
 
 import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -7,17 +7,27 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Link } from 'expo-router';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import { useState } from 'react';
 
 //READ PAGE - SHOWS CURRENT BOOK BEING READ 
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const [showBar, setShowBar] = useState(false);
 
   return (
+    <View style={styles.container}>
       <ScrollView
-        style={styles.scrollView}
+        onScroll={(e) => {
+          const y = e.nativeEvent.contentOffset.y;
+
+          // show when near top
+          setShowBar(y < 50);
+        }}
+        scrollEventThrottle={16}
         contentContainerStyle={{
-          paddingTop: insets.top + 12, // 👈 notch + your spacing
+          paddingTop: insets.top + 12,
+          paddingHorizontal: 16,
         }}
       >
         <Text style={styles.text}>
@@ -55,34 +65,57 @@ export default function HomeScreen() {
           culpa qui officia deserunt mollit anim id est laborum.
         </Text>
       </ScrollView>
+      {showBar && (
+        <View style={[styles.popup, { paddingBottom: insets.bottom + 10 }]}>
+          <Pressable style={styles.arrow}>
+            <Text style={styles.arrowText}>← Prev</Text>
+          </Pressable>
+
+          <Pressable style={styles.arrow}>
+            <Text style={styles.arrowText}>Next →</Text>
+          </Pressable>
+        </View>
+     )}
+     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+    backgroundColor: "#cbfeff",
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-  scrollView: {
-    flex: 1,  
-    paddingHorizontal: 16,
-    backgroundColor: '#deedff',
-  },
+
   text: {
     fontSize: 20,
-    lineHeight: 24,
-    marginBottom: 16,
+    lineHeight: 26,
+    color: "#000",
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+  },
+  popup: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+
+    flexDirection: "row",
+    justifyContent: "space-between",
+
+    backgroundColor: "#111",
+    paddingHorizontal: 20,
+    paddingTop: 12,
+
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+
+  arrow: {
+    padding: 10,
+  },
+
+  arrowText: {
+    color: "white",
+    fontSize: 16,
   },
 });
