@@ -1,20 +1,10 @@
-import { Image } from 'expo-image';
-import { Button, FlatList, Platform,  Pressable,  StyleSheet, Text, View } from 'react-native'
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
-import { SafeAreaView} from 'react-native-safe-area-context';
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from 'expo-file-system'; 
 import { useEffect, useState } from 'react';
-import { router } from "expo-router";
 import { Directory, File, Paths } from "expo-file-system";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // type outside to avoid re-render
 type Book = {
@@ -24,12 +14,16 @@ type Book = {
   type: "epub" | "pdf" | "docx";
 };
 
-
-export default function TabTwoScreen() {
-
 const BOOKS_KEY = 'stored_books';
 
+export default function TabTwoScreen() {
+  const insets = useSafeAreaInsets();
   const [books, setBooks] = useState<Book[]>([]);
+  const [deleteMode, setDeleteMode] = useState(false);
+
+  const deleteBook = (id: string) => {
+    setBooks((prev) => prev.filter((b) => b.id !== id));
+  };
 
   // Load books from storage on mount
   useEffect(() => {
@@ -37,7 +31,6 @@ const BOOKS_KEY = 'stored_books';
       const json = await AsyncStorage.getItem(BOOKS_KEY);
       if (json) {
         const parsed: Book[] = JSON.parse(json);
-        // Migrate old books that don't have a type
         const migrated = parsed.map((b) => ({
           ...b,
           type: b.type ?? "epub",
@@ -60,7 +53,7 @@ const BOOKS_KEY = 'stored_books';
         "application/pdf",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       ],
-      multiple: true, // optional: allow importing multiple at once
+      multiple: true,
     });
 
     if (result.canceled) return;
@@ -94,74 +87,69 @@ const BOOKS_KEY = 'stored_books';
     setBooks((prev) => [...prev, ...newBooks]);
   };
 
-
   return (
-    <SafeAreaView style={styles.container}>
-
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <FlatList
         data={books}
         keyExtractor={(item) => item.id}
+        contentContainerStyle={{ paddingBottom: 80 }}
         renderItem={({ item }) => (
           <Pressable style={styles.card}>
+            {deleteMode && (
+              <Pressable
+                style={styles.deleteX}
+                onPress={() => deleteBook(item.id)}
+              >
+                <Text style={styles.deleteXText}>✕</Text>
+              </Pressable>
+            )}
             <Text style={styles.title}>{item.title}</Text>
             <Text style={styles.badge}>{item.type?.toUpperCase() ?? "EPUB"}</Text>
           </Pressable>
         )}
       />
-      <View style={styles.addBookButton}>
-        <View>
-          <Text>My Books</Text>
-        </View>
-
+      <View style={styles.bottomRow}>
+        <Pressable
+          style={[styles.squareButton, deleteMode && styles.squareButtonActive]}
+          onPress={() => setDeleteMode((prev) => !prev)}
+        >
+          <IconSymbol name="trash.fill" color="white" size={30} />
+        </Pressable>
         <Pressable style={styles.squareButton} onPress={importBook}>
           <Text style={styles.buttonText}>+</Text>
         </Pressable>
       </View>
-
-
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 12,
-  },
-  row: {
-    justifyContent: "space-between",
+    position: "relative",
   },
   card: {
-    flex: 1,
-    margin: 6,
+    marginTop: 14,
+    marginHorizontal: 12,
     height: 120,
     borderRadius: 12,
-    padding: 35,
     backgroundColor: "#222",
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 32,
   },
   title: {
     color: "white",
     fontSize: 16,
     fontWeight: "600",
   },
-  addBookButton: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-  },
-
   squareButton: {
     width: 40,
     height: 40,
-
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
   },
-
   buttonText: {
     color: "white",
     fontSize: 30,
@@ -173,5 +161,34 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textTransform: "uppercase",
     letterSpacing: 1,
+  },
+  bottomRow: {
+    position: "absolute",
+    bottom: 20,
+    left: 20,
+    right: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  squareButtonActive: {
+    backgroundColor: "#ff4444",
+  },
+  deleteX: {
+    position: "absolute",
+    top: -8,
+    left: -8,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "red",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  deleteXText: {
+    color: "white",
+    fontSize: 11,
+    fontWeight: "bold",
   },
 });

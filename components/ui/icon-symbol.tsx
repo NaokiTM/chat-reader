@@ -22,6 +22,7 @@ const MAPPING = {
   'gear.fill': 'settings',
   'book.fill': 'menu-book',
   'glasses': 'visibility',
+  'trash.fill': 'delete-forever',
 } as unknown as IconMapping;
 
 /**
