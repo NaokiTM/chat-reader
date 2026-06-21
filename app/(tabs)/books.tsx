@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Directory, File, Paths } from "expo-file-system";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 
 // type outside to avoid re-render
 type Book = {
@@ -94,7 +95,11 @@ export default function TabTwoScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingBottom: 80 }}
         renderItem={({ item }) => (
-          <Pressable style={styles.card}>
+          <Pressable style={styles.card}   onPress={() => !deleteMode && router.push({ 
+              pathname: "/", 
+              params: { uri: item.uri, title: item.title, type: item.type } 
+            })}
+          >
             {deleteMode && (
               <Pressable
                 style={styles.deleteX}
@@ -136,7 +141,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#222",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 32,
+    paddingHorizontal: 40,
   },
   title: {
     color: "white",
