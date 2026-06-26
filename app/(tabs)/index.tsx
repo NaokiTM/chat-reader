@@ -6,8 +6,6 @@ import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system/legacy';
 import { API_URL } from '@/constants/api';
 
-
-
 type Message = {
   id: string;
   role: "user" | "ai";
@@ -16,19 +14,24 @@ type Message = {
 
 export default function HomeScreen() {
   const SCREEN_WIDTH = Dimensions.get("window").width;
-  const PANEL_WIDTH = SCREEN_WIDTH * 0.85;
+  const PANEL_WIDTH = SCREEN_WIDTH;
+
+  const HANDLE_SIZE = 44;
+  const SWIPE_PADDING = 16;
+
   const slideAnim = useRef(new Animated.Value(-PANEL_WIDTH)).current;
+
   const [chatOpen, setChatOpen] = useState(false);
   const insets = useSafeAreaInsets();
+
   const [base64, setBase64] = useState<string | null>(null);
   const [chapterInfo, setChapterInfo] = useState({ index: 0, total: 0 });
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [bookReady, setBookReady] = useState(false);
+
   const webViewRef = useRef<WebView>(null);
-
-
 
   const openChat = () => {
     setChatOpen(true);
@@ -49,6 +52,7 @@ export default function HomeScreen() {
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 5,
+
       onPanResponderMove: (_, g) => {
         if (!chatOpen && g.dx > 0) {
           slideAnim.setValue(Math.min(0, -PANEL_WIDTH + g.dx));
@@ -57,6 +61,7 @@ export default function HomeScreen() {
           slideAnim.setValue(Math.max(-PANEL_WIDTH, g.dx));
         }
       },
+
       onPanResponderRelease: (_, g) => {
         if (!chatOpen && g.dx > 80) openChat();
         else if (!chatOpen) closeChat();
@@ -66,33 +71,7 @@ export default function HomeScreen() {
     })
   ).current;
 
-  const dimpleResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderMove: (_, g) => {
-        if (!chatOpen && g.dx > 0) {
-          slideAnim.setValue(Math.min(0, -PANEL_WIDTH + g.dx));
-        }
-        if (chatOpen && g.dx < 0) {
-          slideAnim.setValue(Math.max(-PANEL_WIDTH, g.dx));
-        }
-      },
-      onPanResponderRelease: (_, g) => {
-        if (!chatOpen && g.dx > 40) openChat();
-        else if (chatOpen && g.dx < -40) closeChat();
-        else if (chatOpen) openChat();
-        else closeChat();
-      },
-    })
-  ).current;
-
-
-  const { uri, title, type } = useLocalSearchParams<{
-    uri: string;
-    title: string;
-    type: string;
-  }>();
+  const { uri } = useLocalSearchParams<{ uri: string; title: string; type: string }>();
 
   // load base64
   useEffect(() => {
@@ -109,30 +88,6 @@ export default function HomeScreen() {
     };
     load();
   }, [uri]);
-
-  // send book to backend for RAG indexing
-  useEffect(() => {
-    if (!base64 || !uri) return;
-
-    const indexBook = async (chapters: { index: number; text: string }[]) => {
-      try {
-        const bookId = uri.split("/").pop() ?? uri;
-        const res = await fetch(`${API_URL}/upload`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ bookId, chapters }),
-        });
-        const data = await res.json();
-        console.log("Indexed:", data);
-        setBookReady(true);
-      } catch (e) {
-        console.log("Index error:", e);
-      }
-    };
-
-    // we get chapters from the WebView once it parses the epub
-    // so we listen for a "chapters" message
-  }, [base64]);
 
   const sendToWebView = (action: "next" | "prev") => {
     webViewRef.current?.injectJavaScript(`
@@ -163,6 +118,9 @@ export default function HomeScreen() {
       setLoading(false);
     }
   };
+
+  // correct handle travel range (from v1 styling)
+  const MAX_DRAG = PANEL_WIDTH - HANDLE_SIZE - SWIPE_PADDING * 2;
 
   const html = `
     <!DOCTYPE html>
@@ -222,7 +180,6 @@ export default function HomeScreen() {
                 return doc.body.innerText.trim();
               }).filter(text => text.length > 100);
 
-              // send chapters to React Native for indexing
               window.ReactNativeWebView.postMessage(JSON.stringify({
                 type: "chapters",
                 chapters: chapters.map((text, index) => ({ index, text }))
@@ -255,7 +212,7 @@ export default function HomeScreen() {
     );
   }
 
- return (
+  return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <WebView
         ref={webViewRef}
@@ -289,49 +246,68 @@ export default function HomeScreen() {
         }}
       />
 
-
-
-      {/* bottom nav */}
       <View style={styles.bottomNav}>
-        <Pressable style={styles.arrow} onPress={() => sendToWebView("prev")}>
+        <Pressable onPress={() => sendToWebView("prev")}>
           <Text style={styles.arrowText}>← Prev</Text>
         </Pressable>
+
         <Text style={styles.chapterIndicator}>
-          {chapterInfo.total > 0 ? `${chapterInfo.index + 1} / ${chapterInfo.total}` : ""}
+          {chapterInfo.total ? `${chapterInfo.index + 1} / ${chapterInfo.total}` : ""}
         </Text>
-        <Pressable style={styles.arrow} onPress={() => sendToWebView("next")}>
+
+        <Pressable onPress={() => sendToWebView("next")}>
           <Text style={styles.arrowText}>Next →</Text>
         </Pressable>
       </View>
 
-      {/* swipe bar */}
+      {/* SWIPE BAR */}
       <View style={styles.swipeBar} {...panResponder.panHandlers}>
-        <View style={styles.swipeBackground} {...dimpleResponder.panHandlers}>
-          <Animated.View style={[styles.swipeHandle, { transform: [{ translateX: slideAnim.interpolate({
-            inputRange: [-PANEL_WIDTH, 0],
-            outputRange: [0, SCREEN_WIDTH - 84],
-            extrapolate: "clamp",
-          }) }] }]} />
-          <Text style={styles.swipeLabel}>{chatOpen ? "← close" : "ask AI →"}</Text>
+        <View style={styles.swipeBackground}>
+          <Animated.View
+            style={[
+              styles.swipeHandle,
+              {
+                transform: [{
+                  translateX: slideAnim.interpolate({
+                    inputRange: [-PANEL_WIDTH, 0],
+                    outputRange: [0, MAX_DRAG],
+                    extrapolate: "clamp",
+                  })
+                }]
+              }
+            ]}
+          />
+          <Text style={styles.swipeLabel}>
+            {chatOpen ? "← close" : "ask AI →"}
+          </Text>
         </View>
       </View>
 
-      {/* sliding chat panel */}
-      <Animated.View style={[styles.chatPanel, { width: PANEL_WIDTH, transform: [{ translateX: slideAnim }] }]}>
+      {/* CHAT PANEL */}
+      <Animated.View
+        style={[
+          styles.chatPanel,
+          {
+            width: PANEL_WIDTH,
+            transform: [{ translateX: slideAnim }]
+          }
+        ]}
+      >
         <Text style={styles.chatTitle}>Ask about the book</Text>
+
         <FlatList
           data={messages}
           keyExtractor={(m) => m.id}
-          style={styles.messageList}
-          contentContainerStyle={{ padding: 12, gap: 8 }}
           renderItem={({ item }) => (
             <View style={[styles.bubble, item.role === "user" ? styles.userBubble : styles.aiBubble]}>
               <Text style={styles.bubbleText}>{item.text}</Text>
             </View>
           )}
         />
+
         {loading && <Text style={styles.loadingText}>Thinking...</Text>}
         {!bookReady && <Text style={styles.loadingText}>Indexing book...</Text>}
+
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
           <View style={styles.inputRow}>
             <TextInput
@@ -342,7 +318,7 @@ export default function HomeScreen() {
               placeholderTextColor="#aaa"
               onSubmitEditing={askQuestion}
             />
-            <Pressable style={styles.sendButton} onPress={askQuestion}>
+            <Pressable onPress={askQuestion}>
               <Text style={styles.sendText}>→</Text>
             </Pressable>
           </View>
@@ -364,8 +340,9 @@ const styles = StyleSheet.create({
     height: 58,
     backgroundColor: "#111",
     justifyContent: "center",
-    alignItems: "center", // IMPORTANT
+    alignItems: "center",
   },
+
   swipeBackground: {
     width: "90%",
     height: 44,
@@ -373,18 +350,19 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: "center",
   },
+
   swipeHandle: {
     position: "absolute",
     width: 44,
     height: 44,
-    backgroundColor: "#555",
     borderRadius: 22,
+    backgroundColor: "#555",
+    left: 0,
     top: 0,
-    bottom: 0,
   },
+
   swipeLabel: {
     color: "#aaa",
-    fontSize: 13,
     textAlign: "center",
   },
 
@@ -399,67 +377,50 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#111",
     paddingHorizontal: 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
   },
-  arrow: { padding: 10 },
+
   arrowText: { color: "white", fontSize: 20 },
-  chapterIndicator: { color: "white", fontSize: 14 },
+  chapterIndicator: { color: "white" },
 
   chatPanel: {
     position: "absolute",
     top: 0,
-    bottom: 58, // above swipe bar + popup
+    bottom: 58,
     left: 0,
     backgroundColor: "#1a1a1a",
-    shadowColor: "#000",
-    shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
   },
+
   chatTitle: {
     color: "white",
     fontSize: 18,
-    fontWeight: "600",
     padding: 16,
     marginTop: 30,
-    borderBottomWidth: 1,
-    borderBottomColor: "#333",
   },
-  messageList: { flex: 1 },
+
   bubble: {
-    maxWidth: "80%",
     padding: 10,
-    borderRadius: 12,
-    marginVertical: 4,
+    margin: 6,
+    borderRadius: 10,
   },
+
   userBubble: { backgroundColor: "#333", alignSelf: "flex-end" },
   aiBubble: { backgroundColor: "#2a2a2a", alignSelf: "flex-start" },
-  bubbleText: { color: "white", fontSize: 15 },
+  bubbleText: { color: "white" },
+
   loadingText: { color: "#aaa", padding: 8, textAlign: "center" },
+
   inputRow: {
     flexDirection: "row",
     padding: 12,
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#333",
   },
+
   input: {
     flex: 1,
     backgroundColor: "#333",
-    borderRadius: 8,
-    padding: 10,
     color: "white",
-    fontSize: 16,
-  },
-  sendButton: {
-    width: 44,
-    height: 44,
-    backgroundColor: "#444",
+    padding: 10,
     borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
   },
+
   sendText: { color: "white", fontSize: 20 },
 });
