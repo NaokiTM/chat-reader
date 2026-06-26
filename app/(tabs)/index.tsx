@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View, TextInput, FlatList, KeyboardAvoidingView, Platform, Dimensions, Animated, PanResponder } from 'react-native';
+import { Pressable, StyleSheet, Text, View, TextInput, FlatList, KeyboardAvoidingView, Platform, Dimensions, Animated, PanResponder, Easing } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
@@ -33,19 +33,49 @@ export default function HomeScreen() {
 
   const webViewRef = useRef<WebView>(null);
 
-  const openChat = () => {
-    setChatOpen(true);
-    Animated.spring(slideAnim, {
-      toValue: 0,
+  // Keep a ref in sync with chatOpen so PanResponder's closures (created once
+  // via useRef) always see the *current* value instead of the one captured
+  // at first render.
+  const chatOpenRef = useRef(chatOpen);
+  useEffect(() => {
+    chatOpenRef.current = chatOpen;
+  }, [chatOpen]);
+
+  // Where the gesture started (0 = fully open, -PANEL_WIDTH = fully closed).
+  // Captured fresh at the start of every touch so dragging always continues
+  // smoothly from wherever the panel currently is.
+  const startValueRef = useRef(-PANEL_WIDTH);
+
+  const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+
+  // Minimum speed (px/ms) used when release velocity is ~0 (e.g. a slow drag
+  // that just barely lets go), so the panel doesn't take forever to finish.
+  const MIN_SPEED = 0.6;
+
+  // Animate the remaining distance at (approximately) the same speed the
+  // finger was just moving at, using linear easing so it reads as a
+  // continuation of the drag rather than a separate "snap" with its own
+  // acceleration/deceleration curve.
+  const animatePanelLinear = (toValue: number, fromValue: number, velocity: number, onDone?: () => void) => {
+    const distance = Math.abs(toValue - fromValue);
+    const speed = Math.max(Math.abs(velocity), MIN_SPEED);
+    const duration = distance / speed;
+
+    Animated.timing(slideAnim, {
+      toValue,
+      duration,
+      easing: Easing.linear,
       useNativeDriver: true,
-    }).start();
+    }).start(onDone);
   };
 
-  const closeChat = () => {
-    Animated.spring(slideAnim, {
-      toValue: -PANEL_WIDTH,
-      useNativeDriver: true,
-    }).start(() => setChatOpen(false));
+  const openChat = (fromValue = -PANEL_WIDTH, velocity = 0) => {
+    setChatOpen(true);
+    animatePanelLinear(0, fromValue, velocity);
+  };
+
+  const closeChat = (fromValue = 0, velocity = 0) => {
+    animatePanelLinear(-PANEL_WIDTH, fromValue, velocity, () => setChatOpen(false));
   };
 
   const panResponder = useRef(
@@ -53,20 +83,34 @@ export default function HomeScreen() {
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 5,
 
+      onPanResponderGrant: () => {
+        // Wherever the panel is right now becomes the baseline for this
+        // gesture — works whether it's at rest fully open/closed, or
+        // mid-animation from a previous quick release.
+        startValueRef.current = chatOpenRef.current ? 0 : -PANEL_WIDTH;
+        slideAnim.stopAnimation((value) => {
+          startValueRef.current = value;
+        });
+      },
+
       onPanResponderMove: (_, g) => {
-        if (!chatOpen && g.dx > 0) {
-          slideAnim.setValue(Math.min(0, -PANEL_WIDTH + g.dx));
-        }
-        if (chatOpen && g.dx < 0) {
-          slideAnim.setValue(Math.max(-PANEL_WIDTH, g.dx));
-        }
+        const next = clamp(startValueRef.current + g.dx, -PANEL_WIDTH, 0);
+        slideAnim.setValue(next);
       },
 
       onPanResponderRelease: (_, g) => {
-        if (!chatOpen && g.dx > 80) openChat();
-        else if (!chatOpen) closeChat();
-        else if (chatOpen && g.dx < -80) closeChat();
-        else openChat();
+        const currentValue = clamp(startValueRef.current + g.dx, -PANEL_WIDTH, 0);
+        const fractionOpen = (currentValue + PANEL_WIDTH) / PANEL_WIDTH; // 0 = closed, 1 = open
+
+        const flickedOpen = g.vx > 0.5;
+        const flickedClosed = g.vx < -0.5;
+
+        // A decisive flick wins outright; otherwise go with whichever side
+        // of halfway the panel is currently resting on.
+        const shouldOpen = flickedOpen ? true : flickedClosed ? false : fractionOpen > 0.5;
+
+        if (shouldOpen) openChat(currentValue, g.vx);
+        else closeChat(currentValue, g.vx);
       },
     })
   ).current;
