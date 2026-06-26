@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
+
 // type outside to avoid re-render
 type Book = {
   id: string;
@@ -29,7 +30,7 @@ export default function TabTwoScreen() {
   // Load books from storage on mount
   useEffect(() => {
     const loadBooks = async () => {
-      const json = await AsyncStorage.getItem(BOOKS_KEY);
+      const json = await AsyncStorage.getItem(BOOKS_KEY);  
       if (json) {
         const parsed: Book[] = JSON.parse(json);
         const migrated = parsed.map((b) => ({
