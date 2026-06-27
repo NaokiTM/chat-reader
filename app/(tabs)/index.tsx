@@ -1,10 +1,12 @@
-import { Pressable, StyleSheet, Text, View, TextInput, FlatList, KeyboardAvoidingView, Platform, Dimensions, Animated, PanResponder, Easing } from 'react-native';
+import { Pressable, StyleSheet, Text, View, TextInput, FlatList, KeyboardAvoidingView, Platform, Dimensions, Animated, Easing } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
 import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system/legacy';
 import { API_URL } from '@/constants/api';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Bookmark } from '@/components/ui/bookmark';
 
 type Message = {
   id: string;
@@ -15,105 +17,60 @@ type Message = {
 export default function HomeScreen() {
   const SCREEN_WIDTH = Dimensions.get("window").width;
   const PANEL_WIDTH = SCREEN_WIDTH;
-
-  const HANDLE_SIZE = 44;
-  const SWIPE_PADDING = 16;
-
   const slideAnim = useRef(new Animated.Value(-PANEL_WIDTH)).current;
-
   const [chatOpen, setChatOpen] = useState(false);
   const insets = useSafeAreaInsets();
-
   const [base64, setBase64] = useState<string | null>(null);
   const [chapterInfo, setChapterInfo] = useState({ index: 0, total: 0 });
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [bookReady, setBookReady] = useState(false);
-
+  const [menuOpen, setMenuOpen] = useState(false);
   const webViewRef = useRef<WebView>(null);
 
-  // Keep a ref in sync with chatOpen so PanResponder's closures (created once
-  // via useRef) always see the *current* value instead of the one captured
-  // at first render.
-  const chatOpenRef = useRef(chatOpen);
+  // Visibility of the top button row + bottom chapter bar, driven by scroll
+  // direction messages coming from inside the WebView.
+  const [navVisible, setNavVisible] = useState(true);
+  const navAnim = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
-    chatOpenRef.current = chatOpen;
-  }, [chatOpen]);
-
-  // Where the gesture started (0 = fully open, -PANEL_WIDTH = fully closed).
-  // Captured fresh at the start of every touch so dragging always continues
-  // smoothly from wherever the panel currently is.
-  const startValueRef = useRef(-PANEL_WIDTH);
-
-  const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
-
-  // Minimum speed (px/ms) used when release velocity is ~0 (e.g. a slow drag
-  // that just barely lets go), so the panel doesn't take forever to finish.
-  const MIN_SPEED = 0.6;
-
-  // Animate the remaining distance at (approximately) the same speed the
-  // finger was just moving at, using linear easing so it reads as a
-  // continuation of the drag rather than a separate "snap" with its own
-  // acceleration/deceleration curve.
-  const animatePanelLinear = (toValue: number, fromValue: number, velocity: number, onDone?: () => void) => {
-    const distance = Math.abs(toValue - fromValue);
-    const speed = Math.max(Math.abs(velocity), MIN_SPEED);
-    const duration = distance / speed;
-
-    Animated.timing(slideAnim, {
-      toValue,
-      duration,
-      easing: Easing.linear,
+    Animated.timing(navAnim, {
+      toValue: navVisible ? 1 : 0,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
-    }).start(onDone);
-  };
+    }).start();
+  }, [navVisible]);
 
-  const openChat = (fromValue = -PANEL_WIDTH, velocity = 0) => {
+  // Don't leave the dropdown open behind invisible (pointerEvents: "none") chrome.
+  useEffect(() => {
+    if (!navVisible) setMenuOpen(false);
+  }, [navVisible]);
+
+  const openChat = () => {
     setChatOpen(true);
-    animatePanelLinear(0, fromValue, velocity);
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 250,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
   };
 
-  const closeChat = (fromValue = 0, velocity = 0) => {
-    animatePanelLinear(-PANEL_WIDTH, fromValue, velocity, () => setChatOpen(false));
+  const closeChat = () => {
+    Animated.timing(slideAnim, {
+      toValue: -PANEL_WIDTH,
+      duration: 250,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => setChatOpen(false));
   };
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 5,
-
-      onPanResponderGrant: () => {
-        // Wherever the panel is right now becomes the baseline for this
-        // gesture — works whether it's at rest fully open/closed, or
-        // mid-animation from a previous quick release.
-        startValueRef.current = chatOpenRef.current ? 0 : -PANEL_WIDTH;
-        slideAnim.stopAnimation((value) => {
-          startValueRef.current = value;
-        });
-      },
-
-      onPanResponderMove: (_, g) => {
-        const next = clamp(startValueRef.current + g.dx, -PANEL_WIDTH, 0);
-        slideAnim.setValue(next);
-      },
-
-      onPanResponderRelease: (_, g) => {
-        const currentValue = clamp(startValueRef.current + g.dx, -PANEL_WIDTH, 0);
-        const fractionOpen = (currentValue + PANEL_WIDTH) / PANEL_WIDTH; // 0 = closed, 1 = open
-
-        const flickedOpen = g.vx > 0.5;
-        const flickedClosed = g.vx < -0.5;
-
-        // A decisive flick wins outright; otherwise go with whichever side
-        // of halfway the panel is currently resting on.
-        const shouldOpen = flickedOpen ? true : flickedClosed ? false : fractionOpen > 0.5;
-
-        if (shouldOpen) openChat(currentValue, g.vx);
-        else closeChat(currentValue, g.vx);
-      },
-    })
-  ).current;
+  const handleMenuSelect = (action: () => void) => {
+    setMenuOpen(false);
+    action();
+  };
 
   const { uri } = useLocalSearchParams<{ uri: string; title: string; type: string }>();
 
@@ -163,8 +120,11 @@ export default function HomeScreen() {
     }
   };
 
-  // correct handle travel range (from v1 styling)
-  const MAX_DRAG = PANEL_WIDTH - HANDLE_SIZE - SWIPE_PADDING * 2;
+  // Extra top padding inside the WebView's own document so the chapter title
+  // starts below the burger button initially. Because this lives in the
+  // page's own scroll content (not a fixed RN overlay), it scrolls away
+  // naturally with the rest of the chapter instead of blocking anything.
+  const topInset = insets.top + 70;
 
   const html = `
     <!DOCTYPE html>
@@ -172,8 +132,21 @@ export default function HomeScreen() {
     <head>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Lusitana:wght@400;700&display=swap" rel="stylesheet">
       <style>
-        body { margin: 0; padding: 16px; background: #cbfeff; font-size: 20px; line-height: 1.6; color: #000; }
+        body {
+          margin: 0;
+          padding: 24px;
+          padding-top: ${topInset}px;
+          background: #fef0d8;
+          font-size: 22px;
+          line-height: 1.4;
+          color: #000;
+          font-weight: 500;
+        }
+        #content { font-family: 'Lusitana', serif; }
       </style>
     </head>
     <body>
@@ -182,12 +155,38 @@ export default function HomeScreen() {
         let chapters = [];
         let current = 0;
 
+        // --- scroll direction tracking, used to show/hide the RN nav chrome ---
+        let lastY = 0;
+        let upAccum = 0;
+        let navVisible = true;
+        function setNavVisible(v) {
+          if (v !== navVisible) {
+            navVisible = v;
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: "nav", visible: v }));
+          }
+        }
+        window.addEventListener("scroll", () => {
+          const y = window.scrollY;
+          const delta = y - lastY;
+          if (delta > 2) {
+            // scrolling down
+            upAccum = 0;
+            if (y > 40) setNavVisible(false);
+          } else if (delta < -2) {
+            // scrolling up - only reveal once they've scrolled up "for a while"
+            upAccum += -delta;
+            if (upAccum > 60 || y <= 0) setNavVisible(true);
+          }
+          lastY = y;
+        });
+
         function showChapter(index) {
           current = index;
           const text = chapters[index].split(/Chapter\\s*\\d+/).pop().trim();
           const content = document.getElementById("content");
           content.innerHTML = "<div style='text-align:center; font-weight:bold; font-size:22px; margin-bottom:16px;'>Chapter " + (index + 1) + "</div>" + "<div>" + text.replace(/\\n/g, "<br>") + "</div>";
           window.scrollTo(0, 0);
+          setNavVisible(true);
           window.ReactNativeWebView.postMessage(JSON.stringify({
             type: "chapterChange",
             index: current,
@@ -256,10 +255,15 @@ export default function HomeScreen() {
     );
   }
 
+  const navStyle = {
+    opacity: navAnim,
+  };
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <WebView
         ref={webViewRef}
+        style={styles.webview}
         source={{ html }}
         originWhitelist={["*"]}
         allowFileAccess
@@ -271,6 +275,9 @@ export default function HomeScreen() {
             const msg = JSON.parse(e.nativeEvent.data);
             if (msg.type === "chapterChange") {
               setChapterInfo({ index: msg.index, total: msg.total });
+            }
+            if (msg.type === "nav") {
+              setNavVisible(msg.visible);
             }
             if (msg.type === "chapters") {
               const bookId = uri!.split("/").pop() ?? uri!;
@@ -290,7 +297,41 @@ export default function HomeScreen() {
         }}
       />
 
-      <View style={styles.bottomNav}>
+      {/* TOP RIGHT BURGER MENU */}
+      <Animated.View
+        style={[styles.topBar, { top: insets.top + 8 }, navStyle]}
+        pointerEvents={navVisible ? "auto" : "none"}
+      >
+        {/* bookmarks */}
+        <View style={{ flexDirection: "row", gap: 8, paddingLeft: 8 }}>
+          <Bookmark size={32} activeColor="#d20f39" inactiveColor="#d20f39" />
+          <Bookmark size={32} activeColor="#df8e1d" inactiveColor="#df8e1d" />
+          <Bookmark size={32} activeColor="#7287fd" inactiveColor="#7287fd" />
+        </View>
+
+
+
+        <Pressable style={styles.burgerButton} onPress={() => setMenuOpen((v) => !v)}>
+          <IconSymbol size={22} name="line.horizontal.3" color="white" />
+        </Pressable>
+
+        {menuOpen && (
+          <View style={styles.dropdown}>
+            <Pressable style={styles.dropdownItem} onPress={() => handleMenuSelect(() => {})}>
+              <Text style={styles.dropdownText}>MagicTranslate</Text>
+            </Pressable>
+            <Pressable style={styles.dropdownItem} onPress={() => handleMenuSelect(() => {})}>
+              <Text style={styles.dropdownText}>Search Chapter</Text>
+            </Pressable>
+            <Pressable style={[styles.dropdownItem, styles.dropdownItemLast]} onPress={() => handleMenuSelect(openChat)}>
+              <Text style={styles.dropdownText}>Ask AI</Text>
+            </Pressable>
+          </View>
+        )}
+      </Animated.View>
+
+      {/* BOTTOM CHAPTER NAV */}
+      <Animated.View style={[styles.bottomNav, navStyle]} pointerEvents={navVisible ? "auto" : "none"}>
         <Pressable onPress={() => sendToWebView("prev")}>
           <Text style={styles.arrowText}>← Prev</Text>
         </Pressable>
@@ -302,125 +343,129 @@ export default function HomeScreen() {
         <Pressable onPress={() => sendToWebView("next")}>
           <Text style={styles.arrowText}>Next →</Text>
         </Pressable>
-      </View>
-
-      {/* SWIPE BAR */}
-      <View style={styles.swipeBar} {...panResponder.panHandlers}>
-        <View style={styles.swipeBackground}>
-          <Animated.View
-            style={[
-              styles.swipeHandle,
-              {
-                transform: [{
-                  translateX: slideAnim.interpolate({
-                    inputRange: [-PANEL_WIDTH, 0],
-                    outputRange: [0, MAX_DRAG],
-                    extrapolate: "clamp",
-                  })
-                }]
-              }
-            ]}
-          />
-          <Text style={styles.swipeLabel}>
-            {chatOpen ? "← close" : "ask AI →"}
-          </Text>
-        </View>
-      </View>
+      </Animated.View>
 
       {/* CHAT PANEL */}
-      <Animated.View
-        style={[
-          styles.chatPanel,
-          {
-            width: PANEL_WIDTH,
-            transform: [{ translateX: slideAnim }]
-          }
-        ]}
-      >
-        <Text style={styles.chatTitle}>Ask about the book</Text>
-
-        <FlatList
-          data={messages}
-          keyExtractor={(m) => m.id}
-          renderItem={({ item }) => (
-            <View style={[styles.bubble, item.role === "user" ? styles.userBubble : styles.aiBubble]}>
-              <Text style={styles.bubbleText}>{item.text}</Text>
-            </View>
-          )}
-        />
-
-        {loading && <Text style={styles.loadingText}>Thinking...</Text>}
-        {!bookReady && <Text style={styles.loadingText}>Indexing book...</Text>}
-
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.input}
-              value={input}
-              onChangeText={setInput}
-              placeholder="Ask something..."
-              placeholderTextColor="#aaa"
-              onSubmitEditing={askQuestion}
-            />
-            <Pressable onPress={askQuestion}>
-              <Text style={styles.sendText}>→</Text>
+      {chatOpen && (
+        <Animated.View
+          style={[
+            styles.chatPanel,
+            {
+              width: PANEL_WIDTH,
+              transform: [{ translateX: slideAnim }],
+            },
+          ]}
+        >
+          <View style={[styles.chatHeader, { paddingTop: insets.top + 12 }]}>
+            <Text style={styles.chatTitle}>Ask about the book</Text>
+            <Pressable onPress={closeChat}>
+              <Text style={styles.closeText}>✕</Text>
             </Pressable>
           </View>
-        </KeyboardAvoidingView>
-      </Animated.View>
+
+          <FlatList
+            data={messages}
+            keyExtractor={(m) => m.id}
+            renderItem={({ item }) => (
+              <View style={[styles.bubble, item.role === "user" ? styles.userBubble : styles.aiBubble]}>
+                <Text style={styles.bubbleText}>{item.text}</Text>
+              </View>
+            )}
+          />
+
+          {loading && <Text style={styles.loadingText}>Thinking...</Text>}
+          {!bookReady && <Text style={styles.loadingText}>Indexing book...</Text>}
+
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.input}
+                value={input}
+                onChangeText={setInput}
+                placeholder="Ask something..."
+                placeholderTextColor="#aaa"
+                onSubmitEditing={askQuestion}
+              />
+              <Pressable onPress={askQuestion}>
+                <Text style={styles.sendText}>→</Text>
+              </Pressable>
+            </View>
+          </KeyboardAvoidingView>
+        </Animated.View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#cbfeff" },
+  container: { flex: 1, backgroundColor: "#fef0d8" },
+  webview: { flex: 1, backgroundColor: "transparent" },
   placeholder: { fontSize: 18, color: "#333", padding: 20 },
 
-  swipeBar: {
+  topBar: {
     position: "absolute",
     left: 0,
     right: 0,
-    bottom: 0,
-    height: 58,
-    backgroundColor: "#111",
-    justifyContent: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
+    paddingHorizontal: 16,
+    zIndex: 10,
+    elevation: 10,
   },
-
-  swipeBackground: {
-    width: "90%",
-    height: 44,
-    backgroundColor: "#333",
-    borderRadius: 22,
-    justifyContent: "center",
-  },
-
-  swipeHandle: {
-    position: "absolute",
+  burgerButton: {
+    backgroundColor: "#111",
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#555",
-    left: 0,
-    top: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    right: 8,
   },
 
-  swipeLabel: {
-    color: "#aaa",
-    textAlign: "center",
+  dropdown: {
+    position: "absolute",
+    top: 52,
+    right: 20,
+    width: 190,
+    backgroundColor: "#111",
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+
+  dropdownItem: {
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: "#262626",
+  },
+
+  dropdownItemLast: {
+    borderBottomWidth: 0,
+  },
+
+  dropdownText: {
+    color: "white",
+    fontSize: 15,
+    fontWeight: "600",
   },
 
   bottomNav: {
     position: "absolute",
     left: 0,
     right: 0,
-    bottom: 55,
+    bottom: 0,
     height: 56,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     backgroundColor: "#111",
     paddingHorizontal: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: "hidden",
+    zIndex: 10,
+    elevation: 10,
   },
 
   arrowText: { color: "white", fontSize: 20 },
@@ -429,16 +474,29 @@ const styles = StyleSheet.create({
   chatPanel: {
     position: "absolute",
     top: 0,
-    bottom: 58,
+    bottom: 0,
     left: 0,
     backgroundColor: "#1a1a1a",
+    zIndex: 20,
+    elevation: 20,
+  },
+
+  chatHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
   },
 
   chatTitle: {
     color: "white",
     fontSize: 18,
-    padding: 16,
-    marginTop: 30,
+  },
+
+  closeText: {
+    color: "white",
+    fontSize: 20,
   },
 
   bubble: {

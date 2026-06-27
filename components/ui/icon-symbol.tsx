@@ -23,6 +23,13 @@ const MAPPING = {
   'book.fill': 'menu-book',
   'glasses': 'visibility',
   'trash.fill': 'delete-forever',
+
+  // added icons
+  'magnifyingglass': 'search',        // search
+  'brain': 'psychology',              // “brain” (closest standard icon)
+  'robot': 'smart-toy',              // robot/AI vibe
+  'globe': 'language',               // language / translation
+  'translate': 'translate',          // explicit translate icon (if supported)
 } as unknown as IconMapping;
 
 /**
