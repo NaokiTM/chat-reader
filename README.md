@@ -4,6 +4,7 @@
 - ai key word highlighting in current chapter
 - highlight a part to explain (or produce explain options menu for more specific queries)
 - light and dark mode
+- previous chapter summary on app open
 
 
 ## Get started

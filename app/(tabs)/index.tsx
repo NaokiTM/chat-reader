@@ -3,6 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
 import { WebView } from 'react-native-webview';
+import { BlurView } from 'expo-blur';
 import * as FileSystem from 'expo-file-system/legacy';
 import { API_URL } from '@/constants/api';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -14,11 +15,21 @@ type Message = {
   text: string;
 };
 
+type BookmarkSlot = { chapterIndex: number; scrollY: number } | null;
+
+const LANGUAGES = [
+  "English", "Spanish", "French", "German", "Italian", "Portuguese",
+  "Mandarin Chinese", "Japanese", "Korean", "Arabic", "Hindi", "Russian",
+  "Dutch", "Turkish",
+];
+
 export default function HomeScreen() {
   const SCREEN_WIDTH = Dimensions.get("window").width;
   const PANEL_WIDTH = SCREEN_WIDTH;
   const slideAnim = useRef(new Animated.Value(-PANEL_WIDTH)).current;
+  const translateSlideAnim = useRef(new Animated.Value(-PANEL_WIDTH)).current;
   const [chatOpen, setChatOpen] = useState(false);
+  const [translateOpen, setTranslateOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const [base64, setBase64] = useState<string | null>(null);
   const [chapterInfo, setChapterInfo] = useState({ index: 0, total: 0 });
@@ -27,7 +38,11 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(false);
   const [bookReady, setBookReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [bookmarks, setBookmarks] = useState<BookmarkSlot[]>([null, null, null]);
   const webViewRef = useRef<WebView>(null);
+  const pendingSaveSlotRef = useRef<number | null>(null);
 
   // Visibility of the top button row + bottom chapter bar, driven by scroll
   // direction messages coming from inside the WebView.
@@ -43,12 +58,17 @@ export default function HomeScreen() {
     }).start();
   }, [navVisible]);
 
-  // Don't leave the dropdown open behind invisible (pointerEvents: "none") chrome.
+  // Don't leave the dropdown/search bar open behind invisible
+  // (pointerEvents: "none") chrome.
   useEffect(() => {
-    if (!navVisible) setMenuOpen(false);
+    if (!navVisible) {
+      setMenuOpen(false);
+      setSearchOpen(false);
+    }
   }, [navVisible]);
 
   const openChat = () => {
+    if (translateOpen) closeTranslate();
     setChatOpen(true);
     Animated.timing(slideAnim, {
       toValue: 0,
@@ -65,6 +85,26 @@ export default function HomeScreen() {
       easing: Easing.in(Easing.cubic),
       useNativeDriver: true,
     }).start(() => setChatOpen(false));
+  };
+
+  const openTranslate = () => {
+    if (chatOpen) closeChat();
+    setTranslateOpen(true);
+    Animated.timing(translateSlideAnim, {
+      toValue: 0,
+      duration: 250,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeTranslate = () => {
+    Animated.timing(translateSlideAnim, {
+      toValue: -PANEL_WIDTH,
+      duration: 250,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => setTranslateOpen(false));
   };
 
   const handleMenuSelect = (action: () => void) => {
@@ -97,6 +137,49 @@ export default function HomeScreen() {
     `);
   };
 
+  // --- Search ---
+  const runSearch = (query: string) => {
+    webViewRef.current?.injectJavaScript(`
+      window.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ action: "search", query: ${JSON.stringify(query)} }) }));
+      true;
+    `);
+  };
+
+  const closeSearch = () => {
+    runSearch(""); // empty query clears existing highlights
+    setSearchOpen(false);
+    setSearchQuery("");
+  };
+
+  // --- Bookmarks ---
+  const saveBookmark = (slot: number) => {
+    pendingSaveSlotRef.current = slot;
+    webViewRef.current?.injectJavaScript(`
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: "scrollPos", y: window.scrollY }));
+      true;
+    `);
+  };
+
+  const handleBookmarkPress = (slot: number) => {
+    const bm = bookmarks[slot];
+    if (bm) {
+      webViewRef.current?.injectJavaScript(`
+        window.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ action: "goto", index: ${bm.chapterIndex}, scrollY: ${bm.scrollY} }) }));
+        true;
+      `);
+    } else {
+      saveBookmark(slot);
+    }
+  };
+
+  const handleBookmarkLongPress = (slot: number) => {
+    setBookmarks((prev) => {
+      const next = [...prev];
+      next[slot] = null;
+      return next;
+    });
+  };
+
   const askQuestion = async () => {
     if (!input.trim() || !bookReady) return;
     const question = input.trim();
@@ -121,9 +204,8 @@ export default function HomeScreen() {
   };
 
   // Extra top padding inside the WebView's own document so the chapter title
-  // starts below the burger button initially. Because this lives in the
-  // page's own scroll content (not a fixed RN overlay), it scrolls away
-  // naturally with the rest of the chapter instead of blocking anything.
+  // starts below the burger button initially. Lives in the page's own
+  // scroll content (not a fixed RN overlay), so it scrolls away naturally.
   const topInset = insets.top + 70;
 
   const html = `
@@ -169,11 +251,9 @@ export default function HomeScreen() {
           const y = window.scrollY;
           const delta = y - lastY;
           if (delta > 2) {
-            // scrolling down
             upAccum = 0;
             if (y > 40) setNavVisible(false);
           } else if (delta < -2) {
-            // scrolling up - only reveal once they've scrolled up "for a while"
             upAccum += -delta;
             if (upAccum > 60 || y <= 0) setNavVisible(true);
           }
@@ -194,10 +274,82 @@ export default function HomeScreen() {
           }));
         }
 
+        function gotoChapter(index, scrollY) {
+          if (index !== current) {
+            showChapter(index);
+          }
+          setTimeout(function () {
+            window.scrollTo(0, scrollY);
+            lastY = scrollY;
+            upAccum = 0;
+          }, 80);
+        }
+
+        // --- plain substring search, no regex (keeps escaping simple/safe) ---
+        function clearHighlights() {
+          const content = document.getElementById("content");
+          const marks = content.querySelectorAll(".search-hl");
+          for (let i = 0; i < marks.length; i++) {
+            const el = marks[i];
+            const parent = el.parentNode;
+            parent.replaceChild(document.createTextNode(el.textContent), el);
+            parent.normalize();
+          }
+        }
+
+        function searchInChapter(query) {
+          clearHighlights();
+          if (!query) return;
+          const lowerQuery = query.toLowerCase();
+          const content = document.getElementById("content");
+          const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT, null);
+          const textNodes = [];
+          let node;
+          while ((node = walker.nextNode())) {
+            textNodes.push(node);
+          }
+          let firstHighlight = null;
+          for (let n = 0; n < textNodes.length; n++) {
+            const textNode = textNodes[n];
+            const text = textNode.nodeValue;
+            const lowerText = text.toLowerCase();
+            if (lowerText.indexOf(lowerQuery) === -1) continue;
+
+            const frag = document.createDocumentFragment();
+            let pos = 0;
+            let searchPos;
+            while ((searchPos = lowerText.indexOf(lowerQuery, pos)) !== -1) {
+              if (searchPos > pos) {
+                frag.appendChild(document.createTextNode(text.slice(pos, searchPos)));
+              }
+              const span = document.createElement("span");
+              span.className = "search-hl";
+              span.style.backgroundColor = "#d20f39";
+              span.style.color = "#fff";
+              span.style.borderRadius = "3px";
+              span.style.padding = "0 1px";
+              span.textContent = text.slice(searchPos, searchPos + query.length);
+              frag.appendChild(span);
+              if (!firstHighlight) firstHighlight = span;
+              pos = searchPos + query.length;
+            }
+            if (pos < text.length) {
+              frag.appendChild(document.createTextNode(text.slice(pos)));
+            }
+            textNode.parentNode.replaceChild(frag, textNode);
+          }
+          if (firstHighlight) {
+            const rect = firstHighlight.getBoundingClientRect();
+            window.scrollTo({ top: window.scrollY + rect.top - 120, left: 0, behavior: "smooth" });
+          }
+        }
+
         window.addEventListener("message", (e) => {
           const msg = JSON.parse(e.data);
           if (msg.action === "next" && current < chapters.length - 1) showChapter(current + 1);
           if (msg.action === "prev" && current > 0) showChapter(current - 1);
+          if (msg.action === "goto") gotoChapter(msg.index, msg.scrollY);
+          if (msg.action === "search") searchInChapter(msg.query);
         });
 
         try {
@@ -279,6 +431,15 @@ export default function HomeScreen() {
             if (msg.type === "nav") {
               setNavVisible(msg.visible);
             }
+            if (msg.type === "scrollPos" && pendingSaveSlotRef.current !== null) {
+              const slot = pendingSaveSlotRef.current;
+              pendingSaveSlotRef.current = null;
+              setBookmarks((prev) => {
+                const next = [...prev];
+                next[slot] = { chapterIndex: chapterInfo.index, scrollY: msg.y };
+                return next;
+              });
+            }
             if (msg.type === "chapters") {
               const bookId = uri!.split("/").pop() ?? uri!;
               fetch(`${API_URL}/upload`, {
@@ -297,36 +458,77 @@ export default function HomeScreen() {
         }}
       />
 
-      {/* TOP RIGHT BURGER MENU */}
+      {/* TOP RIGHT BAR: bookmarks + burger menu, or search bar */}
       <Animated.View
         style={[styles.topBar, { top: insets.top + 8 }, navStyle]}
         pointerEvents={navVisible ? "auto" : "none"}
       >
-        {/* bookmarks */}
-        <View style={{ flexDirection: "row", gap: 8, paddingLeft: 8 }}>
-          <Bookmark size={32} activeColor="#d20f39" inactiveColor="#d20f39" />
-          <Bookmark size={32} activeColor="#df8e1d" inactiveColor="#df8e1d" />
-          <Bookmark size={32} activeColor="#7287fd" inactiveColor="#7287fd" />
-        </View>
-
-
-
-        <Pressable style={styles.burgerButton} onPress={() => setMenuOpen((v) => !v)}>
-          <IconSymbol size={22} name="line.horizontal.3" color="white" />
-        </Pressable>
-
-        {menuOpen && (
-          <View style={styles.dropdown}>
-            <Pressable style={styles.dropdownItem} onPress={() => handleMenuSelect(() => {})}>
-              <Text style={styles.dropdownText}>MagicTranslate</Text>
+        {searchOpen ? (
+          <View style={styles.searchRow}>
+            <TextInput
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search this chapter..."
+              placeholderTextColor="#999"
+              autoFocus
+              returnKeyType="search"
+              onSubmitEditing={() => runSearch(searchQuery)}
+            />
+            <Pressable style={styles.searchIconButton} onPress={() => runSearch(searchQuery)}>
+              <IconSymbol size={18} name="magnifyingglass" color="white" />
             </Pressable>
-            <Pressable style={styles.dropdownItem} onPress={() => handleMenuSelect(() => {})}>
-              <Text style={styles.dropdownText}>Search Chapter</Text>
-            </Pressable>
-            <Pressable style={[styles.dropdownItem, styles.dropdownItemLast]} onPress={() => handleMenuSelect(openChat)}>
-              <Text style={styles.dropdownText}>Ask AI</Text>
+            <Pressable style={styles.searchIconButton} onPress={closeSearch}>
+              <Text style={styles.closeText}>✕</Text>
             </Pressable>
           </View>
+        ) : (
+          <>
+            <View style={{ flexDirection: "row", gap: 8, paddingLeft: 8 }}>
+              <Bookmark
+                size={32}
+                activeColor="#d20f39"
+                inactiveColor="#d20f39"
+                active={!!bookmarks[0]}
+                onPress={() => handleBookmarkPress(0)}
+                onLongPress={() => handleBookmarkLongPress(0)}
+              />
+              <Bookmark
+                size={32}
+                activeColor="#df8e1d"
+                inactiveColor="#df8e1d"
+                active={!!bookmarks[1]}
+                onPress={() => handleBookmarkPress(1)}
+                onLongPress={() => handleBookmarkLongPress(1)}
+              />
+              <Bookmark
+                size={32}
+                activeColor="#7287fd"
+                inactiveColor="#7287fd"
+                active={!!bookmarks[2]}
+                onPress={() => handleBookmarkPress(2)}
+                onLongPress={() => handleBookmarkLongPress(2)}
+              />
+            </View>
+
+            <Pressable style={styles.burgerButton} onPress={() => setMenuOpen((v) => !v)}>
+              <IconSymbol size={22} name="line.horizontal.3" color="white" />
+            </Pressable>
+
+            {menuOpen && (
+              <View style={styles.dropdown}>
+                <Pressable style={styles.dropdownItem} onPress={() => handleMenuSelect(openTranslate)}>
+                  <Text style={styles.dropdownText}>MagicTranslate</Text>
+                </Pressable>
+                <Pressable style={styles.dropdownItem} onPress={() => handleMenuSelect(() => setSearchOpen(true))}>
+                  <Text style={styles.dropdownText}>Search Chapter</Text>
+                </Pressable>
+                <Pressable style={[styles.dropdownItem, styles.dropdownItemLast]} onPress={() => handleMenuSelect(openChat)}>
+                  <Text style={styles.dropdownText}>Ask AI</Text>
+                </Pressable>
+              </View>
+            )}
+          </>
         )}
       </Animated.View>
 
@@ -345,7 +547,7 @@ export default function HomeScreen() {
         </Pressable>
       </Animated.View>
 
-      {/* CHAT PANEL */}
+      {/* AI CHAT PANEL — transparent + blurred */}
       {chatOpen && (
         <Animated.View
           style={[
@@ -356,41 +558,76 @@ export default function HomeScreen() {
             },
           ]}
         >
+          <BlurView intensity={45} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, styles.chatTint]} />
+
+          <View style={styles.chatContent}>
+            <View style={[styles.chatHeader, { paddingTop: insets.top + 12 }]}>
+              <Text style={styles.chatTitle}>Ask about the book</Text>
+              <Pressable onPress={closeChat}>
+                <Text style={styles.closeText}>✕</Text>
+              </Pressable>
+            </View>
+
+            <FlatList
+              data={messages}
+              keyExtractor={(m) => m.id}
+              renderItem={({ item }) => (
+                <View style={[styles.bubble, item.role === "user" ? styles.userBubble : styles.aiBubble]}>
+                  <Text style={styles.bubbleText}>{item.text}</Text>
+                </View>
+              )}
+            />
+
+            {loading && <Text style={styles.loadingText}>Thinking...</Text>}
+            {!bookReady && <Text style={styles.loadingText}>Indexing book...</Text>}
+
+            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.input}
+                  value={input}
+                  onChangeText={setInput}
+                  placeholder="Ask something..."
+                  placeholderTextColor="#aaa"
+                  onSubmitEditing={askQuestion}
+                />
+                <Pressable style={styles.sendButton} onPress={askQuestion}>
+                  <Text style={styles.sendText}>→</Text>
+                </Pressable>
+              </View>
+            </KeyboardAvoidingView>
+          </View>
+        </Animated.View>
+      )}
+
+      {/* MAGICTRANSLATE PANEL */}
+      {translateOpen && (
+        <Animated.View
+          style={[
+            styles.translatePanel,
+            {
+              width: PANEL_WIDTH,
+              transform: [{ translateX: translateSlideAnim }],
+            },
+          ]}
+        >
           <View style={[styles.chatHeader, { paddingTop: insets.top + 12 }]}>
-            <Text style={styles.chatTitle}>Ask about the book</Text>
-            <Pressable onPress={closeChat}>
+            <Text style={styles.chatTitle}>MagicTranslate</Text>
+            <Pressable onPress={closeTranslate}>
               <Text style={styles.closeText}>✕</Text>
             </Pressable>
           </View>
 
           <FlatList
-            data={messages}
-            keyExtractor={(m) => m.id}
+            data={LANGUAGES}
+            keyExtractor={(item) => item}
             renderItem={({ item }) => (
-              <View style={[styles.bubble, item.role === "user" ? styles.userBubble : styles.aiBubble]}>
-                <Text style={styles.bubbleText}>{item.text}</Text>
-              </View>
+              <Pressable style={styles.languageRow}>
+                <Text style={styles.languageText}>{item}</Text>
+              </Pressable>
             )}
           />
-
-          {loading && <Text style={styles.loadingText}>Thinking...</Text>}
-          {!bookReady && <Text style={styles.loadingText}>Indexing book...</Text>}
-
-          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
-            <View style={styles.inputRow}>
-              <TextInput
-                style={styles.input}
-                value={input}
-                onChangeText={setInput}
-                placeholder="Ask something..."
-                placeholderTextColor="#aaa"
-                onSubmitEditing={askQuestion}
-              />
-              <Pressable onPress={askQuestion}>
-                <Text style={styles.sendText}>→</Text>
-              </Pressable>
-            </View>
-          </KeyboardAvoidingView>
         </Animated.View>
       )}
     </View>
@@ -450,6 +687,32 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 8,
+  },
+
+  searchInput: {
+    flex: 1,
+    backgroundColor: "#111",
+    color: "white",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    fontSize: 14,
+  },
+
+  searchIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#111",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
   bottomNav: {
     position: "absolute",
     left: 0,
@@ -468,10 +731,29 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
 
-  arrowText: { color: "white", fontSize: 20 },
+  arrowText: { color: "white", fontSize: 20, fontWeight: "600" },
   chapterIndicator: { color: "white" },
 
   chatPanel: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "transparent",
+    zIndex: 20,
+    elevation: 20,
+    overflow: "hidden",
+  },
+
+  chatTint: {
+    backgroundColor: "rgba(10,10,10,0.35)",
+  },
+
+  chatContent: {
+    flex: 1,
+  },
+
+  translatePanel: {
     position: "absolute",
     top: 0,
     bottom: 0,
@@ -513,16 +795,40 @@ const styles = StyleSheet.create({
 
   inputRow: {
     flexDirection: "row",
+    alignItems: "center",
     padding: 12,
   },
 
   input: {
     flex: 1,
-    backgroundColor: "#333",
+    backgroundColor: "rgba(51,51,51,0.6)",
     color: "white",
     padding: 10,
     borderRadius: 8,
   },
 
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
+  },
+
   sendText: { color: "white", fontSize: 20 },
+
+  languageRow: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#262626",
+  },
+
+  languageText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "500",
+  },
 });
