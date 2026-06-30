@@ -53,6 +53,17 @@ export default function HomeScreen() {
   const [navVisible, setNavVisible] = useState(true);
   const navAnim = useRef(new Animated.Value(1)).current;
 
+  const bookmarkBottom = useRef(new Animated.Value(56)).current;
+
+  useEffect(() => {
+    Animated.timing(bookmarkBottom, {
+      toValue: navVisible ? 55 : 0,  // ← was 56
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [navVisible]);
+
   // an easing effect is added when the nav goes invisible
   useEffect(() => {
     Animated.timing(navAnim, {
@@ -323,33 +334,6 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
-            <View style={{ flexDirection: "row", gap: 8, paddingLeft: 8 }}>
-              <Bookmark
-                size={32}
-                activeColor="#d20f39"
-                inactiveColor="#d20f39"
-                active={!!bookmarks[0]}
-                onPress={() => handleBookmarkPress(0)}
-                onLongPress={() => handleBookmarkLongPress(0)}
-              />
-              <Bookmark
-                size={32}
-                activeColor="#df8e1d"
-                inactiveColor="#df8e1d"
-                active={!!bookmarks[1]}
-                onPress={() => handleBookmarkPress(1)}
-                onLongPress={() => handleBookmarkLongPress(1)}
-              />
-              <Bookmark
-                size={32}
-                activeColor="#7287fd"
-                inactiveColor="#7287fd"
-                active={!!bookmarks[2]}
-                onPress={() => handleBookmarkPress(2)}
-                onLongPress={() => handleBookmarkLongPress(2)}
-              />
-            </View>
-
             <Pressable style={styles.burgerButton} onPress={() => setMenuOpen((v) => !v)}>
               <IconSymbol size={22} name="line.horizontal.3" color="white" />
             </Pressable>
@@ -384,6 +368,37 @@ export default function HomeScreen() {
         <Pressable onPress={() => sendToWebView("next")}>
           <Text style={styles.arrowText}>Next →</Text>
         </Pressable>
+      </Animated.View>
+
+      {/* BOOKMARK BAR */}
+      <Animated.View
+        style={[styles.bookmarkBar, { bottom: bookmarkBottom }]}
+        pointerEvents="auto"
+      >
+        <Bookmark
+          size={25}
+          activeColor="#d20f39"
+          inactiveColor="#d20f39"
+          active={!!bookmarks[0]}
+          onPress={() => handleBookmarkPress(0)}
+          onLongPress={() => handleBookmarkLongPress(0)}
+        />
+        <Bookmark
+          size={25}
+          activeColor="#df8e1d"
+          inactiveColor="#df8e1d"
+          active={!!bookmarks[1]}
+          onPress={() => handleBookmarkPress(1)}
+          onLongPress={() => handleBookmarkLongPress(1)}
+        />
+        <Bookmark
+          size={25}
+          activeColor="#7287fd"
+          inactiveColor="#7287fd"
+          active={!!bookmarks[2]}
+          onPress={() => handleBookmarkPress(2)}
+          onLongPress={() => handleBookmarkLongPress(2)}
+        />
       </Animated.View>
 
       {/* AI CHAT PANEL — transparent + blurred */}
@@ -483,7 +498,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",  // ← was space-between
     alignItems: "center",
     paddingHorizontal: 16,
     zIndex: 10,
@@ -561,15 +576,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#111",
+    backgroundColor: "#151515",
     paddingHorizontal: 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    overflow: "hidden",
+    // borderTopLeftRadius and borderTopRightRadius removed
     zIndex: 10,
     elevation: 10,
   },
-
   arrowText: { color: "white", fontSize: 20, fontWeight: "600" },
   chapterIndicator: { color: "white" },
 
@@ -669,5 +681,22 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "500",
+  },
+  bookmarkBar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
+    // borderTopLeftRadius: 20,
+    // borderTopRightRadius: 20,
+    backgroundColor: "#111",
+    zIndex: 11,       // ← was 9, now above chapter bar's 10
+    elevation: 11,    // ← same for Android
   },
 });
