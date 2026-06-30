@@ -4,11 +4,10 @@ import { useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
 import { WebView } from 'react-native-webview';
 import { BlurView } from 'expo-blur';
-import * as FileSystem from 'expo-file-system/legacy';
 import { API_URL } from '@/constants/api';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Bookmark } from '@/components/ui/bookmark';
-import { buildReaderHtml } from '@/constants/readerHtml';
+import { writeReaderHtmlFile } from '@/constants/readerHtml';
 
 // message template to send to AI chat
 type Message = {
@@ -17,7 +16,7 @@ type Message = {
   text: string;
 };
 
-// type to indicate what information a active bookmark contains
+// type to indicate what information an active bookmark contains
 type BookmarkSlot = { chapterIndex: number; scrollY: number } | null;
 
 // template languages for MagicTranslate
@@ -30,37 +29,60 @@ const LANGUAGES = [
 export default function HomeScreen() {
   const SCREEN_WIDTH = Dimensions.get("window").width;
   const PANEL_WIDTH = SCREEN_WIDTH;
+
+  // animation values for the AI chat and translate panels sliding in from the left
   const slideAnim = useRef(new Animated.Value(-PANEL_WIDTH)).current;
   const translateSlideAnim = useRef(new Animated.Value(-PANEL_WIDTH)).current;
+
   const [chatOpen, setChatOpen] = useState(false);
   const [translateOpen, setTranslateOpen] = useState(false);
   const insets = useSafeAreaInsets();
-  const [base64, setBase64] = useState<string | null>(null);
   const [chapterInfo, setChapterInfo] = useState({ index: 0, total: 0 });
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // true once the backend has finished indexing the book and is ready to answer questions
   const [bookReady, setBookReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // three bookmark slots, each storing a chapter index and scroll position, or null if unset
   const [bookmarks, setBookmarks] = useState<BookmarkSlot[]>([null, null, null]);
   const webViewRef = useRef<WebView>(null);
+
+  // holds the slot index while waiting for the WebView to reply with its current scrollY
   const pendingSaveSlotRef = useRef<number | null>(null);
 
-  //visibility of nav bar and menu (invisible when scrolling down)
-  //navAnim controls this visibility by setting opacity accordingly (opacity set using a style below)
+  // visibility of nav bar and menu (invisible when scrolling down)
+  // navAnim controls this visibility by setting opacity accordingly
   const [navVisible, setNavVisible] = useState(true);
   const navAnim = useRef(new Animated.Value(1)).current;
 
+  // bookmark bar slides between sitting on top of the chapter bar (navVisible)
+  // and dropping down to replace it (nav hidden), so bookmarks are always accessible
   const bookmarkBottom = useRef(new Animated.Value(56)).current;
 
+  // path to the reader.html file written to disk (null until it's been written)
+  const [htmlUri, setHtmlUri] = useState<string | null>(null);
+
+  // uri is effectively the file path to the epub book that the reader sends to the webview.
+  // declared early since the effects below depend on it.
+  const { uri } = useLocalSearchParams<{ uri: string; title: string; type: string }>();
+
+  // extra top padding inside the WebView's own document so the chapter title
+  // starts below the burger button initially. lives in the page's own
+  // scroll content (not a fixed RN overlay), so it scrolls away naturally.
+  const topInset = insets.top + 70;
+
+  // slide the bookmark bar up/down in sync with nav visibility
   useEffect(() => {
     Animated.timing(bookmarkBottom, {
-      toValue: navVisible ? 55 : 0,  // ← was 56
+      toValue: navVisible ? 55 : 0,
       duration: 220,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
+      useNativeDriver: false, // 'bottom' is a layout prop, can't use native driver
     }).start();
   }, [navVisible]);
 
@@ -74,8 +96,7 @@ export default function HomeScreen() {
     }).start();
   }, [navVisible]);
 
-  // close nav menus when nav goes invisible
-  // (pointerEvents: "none") chrome.
+  // close nav menus when nav goes invisible so they don't reappear mid-animation
   useEffect(() => {
     if (!navVisible) {
       setMenuOpen(false);
@@ -83,7 +104,18 @@ export default function HomeScreen() {
     }
   }, [navVisible]);
 
-  // OPENS the ai chat window. close interfering menus too. 
+  // write the reader HTML out to an actual file on disk so the WebView loads it
+  // with a real file:// origin (needed for it to be allowed to fetch() the epub).
+  useEffect(() => {
+    if (!uri || typeof uri !== "string") return;
+    let cancelled = false;
+    writeReaderHtmlFile(uri, topInset)
+      .then((u) => { if (!cancelled) setHtmlUri(u); })
+      .catch((e) => console.log("HTML write error:", e));
+    return () => { cancelled = true; };
+  }, [uri, topInset]);
+
+  // OPENS the ai chat window. close interfering menus too.
   const openChat = () => {
     if (translateOpen) closeTranslate();
     setChatOpen(true);
@@ -95,7 +127,7 @@ export default function HomeScreen() {
     }).start();
   };
 
-  // CLOSES the ai chat window. 
+  // CLOSES the ai chat window.
   const closeChat = () => {
     Animated.timing(slideAnim, {
       toValue: -PANEL_WIDTH,
@@ -105,7 +137,7 @@ export default function HomeScreen() {
     }).start(() => setChatOpen(false));
   };
 
-  // OPENS the translate panel. close interfering menus too. 
+  // OPENS the translate panel. close interfering menus too.
   const openTranslate = () => {
     if (chatOpen) closeChat();
     setTranslateOpen(true);
@@ -133,26 +165,7 @@ export default function HomeScreen() {
     action();
   };
 
-  // uri is effectively the file path to the epub book that the reader sends to the webview. 
-  const { uri } = useLocalSearchParams<{ uri: string; title: string; type: string }>();
-
-  // load base64 (the book contents) from the books uri, when the uri changes
-  useEffect(() => {
-    if (!uri || typeof uri !== "string") return;
-    const load = async () => {
-      try {
-        const b64 = await FileSystem.readAsStringAsync(uri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        setBase64(b64);
-      } catch (e) {
-        console.log("Read error:", e);
-      }
-    };
-    load();
-  }, [uri]);
-
-  //sends the next or previous chapter action to webview. the webview can then rerender the chapter to either previous or next
+  // sends the next or previous chapter action to webview. the webview can then rerender the chapter.
   const sendToWebView = (action: "next" | "prev") => {
     webViewRef.current?.injectJavaScript(`
       window.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ action: "${action}" }) }));
@@ -160,7 +173,7 @@ export default function HomeScreen() {
     `);
   };
 
-  //sends the search action to the webview to search in the book contents loaded in webview. 
+  // sends the search action to the webview to highlight matches in the current chapter.
   const runSearch = (query: string) => {
     webViewRef.current?.injectJavaScript(`
       window.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ action: "search", query: ${JSON.stringify(query)} }) }));
@@ -168,14 +181,15 @@ export default function HomeScreen() {
     `);
   };
 
-  // close the search bar. 
+  // close the search bar and clear any existing highlights.
   const closeSearch = () => {
     runSearch(""); // empty query clears existing highlights
     setSearchOpen(false);
     setSearchQuery("");
   };
 
-  //save the now active bookmark slot, and send the bookmark position to the webview
+  // save the bookmark slot, requesting the WebView's current scrollY via postMessage.
+  // the response is handled in onMessage below, keyed on pendingSaveSlotRef.
   const saveBookmark = (slot: number) => {
     pendingSaveSlotRef.current = slot;
     webViewRef.current?.injectJavaScript(`
@@ -184,7 +198,8 @@ export default function HomeScreen() {
     `);
   };
 
-  // when the bookmark is pressed, it uses the goto action to scroll to the position its saved as 
+  // when the bookmark is pressed, it uses the goto action to scroll to the position its saved as.
+  // if empty, saves the current position instead.
   const handleBookmarkPress = (slot: number) => {
     const bm = bookmarks[slot];
     if (bm) {
@@ -206,7 +221,7 @@ export default function HomeScreen() {
     });
   };
 
-  //ask the question to ai, and await the response. throw an error and stop loading if response doesnt load
+  // ask the question to ai, and await the response. throw an error and stop loading if response doesnt load
   const askQuestion = async () => {
     if (!input.trim() || !bookReady) return;
     const question = input.trim();
@@ -230,15 +245,7 @@ export default function HomeScreen() {
     }
   };
 
-  // Extra top padding inside the WebView's own document so the chapter title
-  // starts below the burger button initially. Lives in the page's own
-  // scroll content (not a fixed RN overlay), so it scrolls away naturally.
-  const topInset = insets.top + 70;
-
-  // loads the webview html including the top inset spacing above
-  const html = buildReaderHtml(base64 ?? "", topInset);
-
-  // if the uri of a book isnt loaded then show placeholder text
+  // if the uri of a book isn't loaded then show placeholder text
   if (!uri) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -247,16 +254,16 @@ export default function HomeScreen() {
     );
   }
 
-  // if the book (uri) is exists but its content hasnt loaded, then show loading text
-  if (!base64) {
+  // if the html file hasn't finished being written to disk yet, show a loading state
+  if (!htmlUri) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <Text style={styles.placeholder}>Loading book...</Text>
+        <Text style={styles.placeholder}>Preparing book...</Text>
       </View>
     );
   }
 
-  // here set the fading opacity of the nav when the book is scrolled down.
+  // fading opacity of the nav when the book is scrolled down
   const navStyle = {
     opacity: navAnim,
   };
@@ -266,21 +273,28 @@ export default function HomeScreen() {
       <WebView
         ref={webViewRef}
         style={styles.webview}
-        source={{ html }}
+        source={{ uri: htmlUri }}
         originWhitelist={["*"]}
-        allowFileAccess
-        allowUniversalAccessFromFileURLs
+        allowFileAccess                   // lets the WebView read file:// URIs
+        allowUniversalAccessFromFileURLs  // lets a file:// page fetch() other file:// URIs
         allowFileAccessFromFileURLs
+        allowingReadAccessToURL={uri}     // iOS only: grants WKWebView read access to the epub
         mixedContentMode="always"
         onMessage={(e) => {
           try {
             const msg = JSON.parse(e.nativeEvent.data);
+
+            // update chapter position indicator in the bottom nav
             if (msg.type === "chapterChange") {
               setChapterInfo({ index: msg.index, total: msg.total });
             }
+
+            // show/hide nav chrome based on scroll direction reported by the WebView
             if (msg.type === "nav") {
               setNavVisible(msg.visible);
             }
+
+            // WebView replied with its scrollY — complete the pending bookmark save
             if (msg.type === "scrollPos" && pendingSaveSlotRef.current !== null) {
               const slot = pendingSaveSlotRef.current;
               pendingSaveSlotRef.current = null;
@@ -290,6 +304,8 @@ export default function HomeScreen() {
                 return next;
               });
             }
+
+            // WebView has parsed all chapters — send them to the backend for indexing
             if (msg.type === "chapters") {
               const bookId = uri!.split("/").pop() ?? uri!;
               fetch(`${API_URL}/upload`, {
@@ -308,12 +324,13 @@ export default function HomeScreen() {
         }}
       />
 
-      {/* TOP RIGHT BAR: bookmarks + burger menu, or search bar */}
+      {/* TOP RIGHT BAR: burger menu when reading, or search bar when search is open */}
       <Animated.View
         style={[styles.topBar, { top: insets.top + 8 }, navStyle]}
         pointerEvents={navVisible ? "auto" : "none"}
       >
         {searchOpen ? (
+          // search mode: full-width input with submit and close buttons
           <View style={styles.searchRow}>
             <TextInput
               style={styles.searchInput}
@@ -333,6 +350,7 @@ export default function HomeScreen() {
             </Pressable>
           </View>
         ) : (
+          // normal mode: burger button that opens the dropdown menu
           <>
             <Pressable style={styles.burgerButton} onPress={() => setMenuOpen((v) => !v)}>
               <IconSymbol size={22} name="line.horizontal.3" color="white" />
@@ -355,7 +373,7 @@ export default function HomeScreen() {
         )}
       </Animated.View>
 
-      {/* BOTTOM CHAPTER NAV */}
+      {/* BOTTOM CHAPTER NAV — fades out on scroll down */}
       <Animated.View style={[styles.bottomNav, navStyle]} pointerEvents={navVisible ? "auto" : "none"}>
         <Pressable onPress={() => sendToWebView("prev")}>
           <Text style={styles.arrowText}>← Prev</Text>
@@ -370,7 +388,7 @@ export default function HomeScreen() {
         </Pressable>
       </Animated.View>
 
-      {/* BOOKMARK BAR */}
+      {/* BOOKMARK BAR — always visible, slides down to replace the chapter bar when it fades */}
       <Animated.View
         style={[styles.bookmarkBar, { bottom: bookmarkBottom }]}
         pointerEvents="auto"
@@ -401,7 +419,7 @@ export default function HomeScreen() {
         />
       </Animated.View>
 
-      {/* AI CHAT PANEL — transparent + blurred */}
+      {/* AI CHAT PANEL — transparent + blurred, slides in from the left */}
       {chatOpen && (
         <Animated.View
           style={[
@@ -412,6 +430,7 @@ export default function HomeScreen() {
             },
           ]}
         >
+          {/* blur layer with a dark tint on top for text readability */}
           <BlurView intensity={45} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={[StyleSheet.absoluteFill, styles.chatTint]} />
 
@@ -436,6 +455,7 @@ export default function HomeScreen() {
             {loading && <Text style={styles.loadingText}>Thinking...</Text>}
             {!bookReady && <Text style={styles.loadingText}>Indexing book...</Text>}
 
+            {/* KeyboardAvoidingView pushes the input up when the keyboard appears */}
             <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"}>
               <View style={styles.inputRow}>
                 <TextInput
@@ -455,7 +475,7 @@ export default function HomeScreen() {
         </Animated.View>
       )}
 
-      {/* MAGICTRANSLATE PANEL */}
+      {/* MAGICTRANSLATE PANEL — solid dark panel listing available languages */}
       {translateOpen && (
         <Animated.View
           style={[
@@ -498,12 +518,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: "row",
-    justifyContent: "flex-end",  // ← was space-between
+    justifyContent: "flex-end",
     alignItems: "center",
     paddingHorizontal: 16,
     zIndex: 10,
     elevation: 10,
   },
+
   burgerButton: {
     backgroundColor: "#111",
     width: 44,
@@ -514,6 +535,7 @@ const styles = StyleSheet.create({
     right: 8,
   },
 
+  // dropdown sits absolutely below the burger button
   dropdown: {
     position: "absolute",
     top: 52,
@@ -578,10 +600,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#151515",
     paddingHorizontal: 20,
-    // borderTopLeftRadius and borderTopRightRadius removed
     zIndex: 10,
     elevation: 10,
   },
+
   arrowText: { color: "white", fontSize: 20, fontWeight: "600" },
   chapterIndicator: { color: "white" },
 
@@ -593,9 +615,10 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     zIndex: 20,
     elevation: 20,
-    overflow: "hidden",
+    overflow: "hidden", // required for BlurView to clip correctly
   },
 
+  // semi-transparent dark overlay on top of the blur for text contrast
   chatTint: {
     backgroundColor: "rgba(10,10,10,0.35)",
   },
@@ -682,6 +705,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
   },
+
   bookmarkBar: {
     position: "absolute",
     left: 0,
@@ -693,10 +717,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 12,
-    // borderTopLeftRadius: 20,
-    // borderTopRightRadius: 20,
     backgroundColor: "#111",
-    zIndex: 11,       // ← was 9, now above chapter bar's 10
-    elevation: 11,    // ← same for Android
+    zIndex: 11,      // above chapter bar (zIndex 10) so it's never clipped by it
+    elevation: 11,
   },
 });

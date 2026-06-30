@@ -1,4 +1,16 @@
-export function buildReaderHtml(base64: string, topInset: number): string {
+import { Directory, File, Paths } from "expo-file-system";
+
+export async function writeReaderHtmlFile(uri: string, topInset: number): Promise<string> {
+  const html = buildReaderHtml(uri, topInset);
+  const dir = new Directory(Paths.cache, "reader");
+  if (!dir.exists) dir.create();
+  const file = new File(dir, "reader.html");
+  if (file.exists) file.delete();
+  file.write(html);
+  return file.uri; // file:///.../reader.html
+}
+
+export function buildReaderHtml(uri: string, topInset: number): string {
   return `
     <!DOCTYPE html>
     <html>
@@ -141,40 +153,67 @@ export function buildReaderHtml(base64: string, topInset: number): string {
           if (msg.action === "search") searchInChapter(msg.query);
         });
 
-        try {
-          const base64 = "${base64}";
-          const binary = atob(base64);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        // Read the epub as an ArrayBuffer directly from the local file URI using
+        // XMLHttpRequest instead of fetch(). Android WebView's fetch() implementation
+        // frequently refuses file:// URLs outright (generic "Failed to fetch"), even
+        // with every allowFileAccess flag set — XHR is the reliable path for local
+        // file reads in WebView and avoids the base64-bridge memory blowup entirely.
+        function loadBook() {
+          const xhr = new XMLHttpRequest();
+          xhr.open("GET", ${JSON.stringify(uri)}, true);
+          xhr.responseType = "arraybuffer";
 
-          JSZip.loadAsync(bytes).then(zip => {
-            const htmlFiles = Object.keys(zip.files).filter(name =>
-              (name.endsWith(".html") || name.endsWith(".xhtml") || name.endsWith(".htm")) &&
-              !name.toLowerCase().includes("toc") &&
-              !name.toLowerCase().includes("contents") &&
-              !name.toLowerCase().includes("nav")
-            ).sort();
+          xhr.onload = function() {
+            if (xhr.status !== 0 && xhr.status !== 200) {
+              document.getElementById("content").innerText = "Error loading book: HTTP " + xhr.status;
+              return;
+            }
+            // status 0 is normal for file:// requests in WebView
+            const buffer = xhr.response;
+            if (!buffer) {
+              document.getElementById("content").innerText = "Error loading book: empty response";
+              return;
+            }
 
-            const promises = htmlFiles.map(name => zip.files[name].async("string"));
+            JSZip.loadAsync(buffer).then(function(zip) {
+              const htmlFiles = Object.keys(zip.files).filter(function(name) {
+                return (name.endsWith(".html") || name.endsWith(".xhtml") || name.endsWith(".htm")) &&
+                  !name.toLowerCase().includes("toc") &&
+                  !name.toLowerCase().includes("contents") &&
+                  !name.toLowerCase().includes("nav");
+              }).sort();
 
-            Promise.all(promises).then(contents => {
+              const promises = htmlFiles.map(function(name) {
+                return zip.files[name].async("string");
+              });
+
+              return Promise.all(promises);
+            }).then(function(contents) {
               const parser = new DOMParser();
-              chapters = contents.map(html => {
+              chapters = contents.map(function(html) {
                 const doc = parser.parseFromString(html, "text/html");
                 return doc.body.innerText.trim();
-              }).filter(text => text.length > 100);
+              }).filter(function(text) { return text.length > 100; });
 
               window.ReactNativeWebView.postMessage(JSON.stringify({
                 type: "chapters",
-                chapters: chapters.map((text, index) => ({ index, text }))
+                chapters: chapters.map(function(text, index) { return { index: index, text: text }; })
               }));
 
               showChapter(0);
+            }).catch(function(e) {
+              document.getElementById("content").innerText = "Error parsing book: " + e.message;
             });
-          });
-        } catch(e) {
-          document.getElementById("content").innerText = "Error: " + e.message;
+          };
+
+          xhr.onerror = function() {
+            document.getElementById("content").innerText = "Error loading book: request failed";
+          };
+
+          xhr.send();
         }
+
+        loadBook();
       </script>
     </body>
     </html>
