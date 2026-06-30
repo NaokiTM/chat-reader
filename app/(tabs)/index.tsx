@@ -10,14 +10,17 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Bookmark } from '@/components/ui/bookmark';
 import { buildReaderHtml } from '@/constants/readerHtml';
 
+// message template to send to AI chat
 type Message = {
   id: string;
   role: "user" | "ai";
   text: string;
 };
 
+// type to indicate what information a active bookmark contains
 type BookmarkSlot = { chapterIndex: number; scrollY: number } | null;
 
+// template languages for MagicTranslate
 const LANGUAGES = [
   "English", "Spanish", "French", "German", "Italian", "Portuguese",
   "Mandarin Chinese", "Japanese", "Korean", "Arabic", "Hindi", "Russian",
@@ -45,11 +48,12 @@ export default function HomeScreen() {
   const webViewRef = useRef<WebView>(null);
   const pendingSaveSlotRef = useRef<number | null>(null);
 
-  // Visibility of the top button row + bottom chapter bar, driven by scroll
-  // direction messages coming from inside the WebView.
+  //visibility of nav bar and menu (invisible when scrolling down)
+  //navAnim controls this visibility by setting opacity accordingly (opacity set using a style below)
   const [navVisible, setNavVisible] = useState(true);
   const navAnim = useRef(new Animated.Value(1)).current;
 
+  // an easing effect is added when the nav goes invisible
   useEffect(() => {
     Animated.timing(navAnim, {
       toValue: navVisible ? 1 : 0,
@@ -59,7 +63,7 @@ export default function HomeScreen() {
     }).start();
   }, [navVisible]);
 
-  // Don't leave the dropdown/search bar open behind invisible
+  // close nav menus when nav goes invisible
   // (pointerEvents: "none") chrome.
   useEffect(() => {
     if (!navVisible) {
@@ -68,6 +72,7 @@ export default function HomeScreen() {
     }
   }, [navVisible]);
 
+  // OPENS the ai chat window. close interfering menus too. 
   const openChat = () => {
     if (translateOpen) closeTranslate();
     setChatOpen(true);
@@ -79,6 +84,7 @@ export default function HomeScreen() {
     }).start();
   };
 
+  // CLOSES the ai chat window. 
   const closeChat = () => {
     Animated.timing(slideAnim, {
       toValue: -PANEL_WIDTH,
@@ -88,6 +94,7 @@ export default function HomeScreen() {
     }).start(() => setChatOpen(false));
   };
 
+  // OPENS the translate panel. close interfering menus too. 
   const openTranslate = () => {
     if (chatOpen) closeChat();
     setTranslateOpen(true);
@@ -99,6 +106,7 @@ export default function HomeScreen() {
     }).start();
   };
 
+  // CLOSES the translate panel.
   const closeTranslate = () => {
     Animated.timing(translateSlideAnim, {
       toValue: -PANEL_WIDTH,
@@ -108,14 +116,16 @@ export default function HomeScreen() {
     }).start(() => setTranslateOpen(false));
   };
 
+  // helper function to pass a menu in and open or close it. closes the menu after the action is performed.
   const handleMenuSelect = (action: () => void) => {
     setMenuOpen(false);
     action();
   };
 
+  // uri is effectively the file path to the epub book that the reader sends to the webview. 
   const { uri } = useLocalSearchParams<{ uri: string; title: string; type: string }>();
 
-  // load base64
+  // load base64 (the book contents) from the books uri, when the uri changes
   useEffect(() => {
     if (!uri || typeof uri !== "string") return;
     const load = async () => {
@@ -131,6 +141,7 @@ export default function HomeScreen() {
     load();
   }, [uri]);
 
+  //sends the next or previous chapter action to webview. the webview can then rerender the chapter to either previous or next
   const sendToWebView = (action: "next" | "prev") => {
     webViewRef.current?.injectJavaScript(`
       window.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ action: "${action}" }) }));
@@ -138,7 +149,7 @@ export default function HomeScreen() {
     `);
   };
 
-  // --- Search ---
+  //sends the search action to the webview to search in the book contents loaded in webview. 
   const runSearch = (query: string) => {
     webViewRef.current?.injectJavaScript(`
       window.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ action: "search", query: ${JSON.stringify(query)} }) }));
@@ -146,13 +157,14 @@ export default function HomeScreen() {
     `);
   };
 
+  // close the search bar. 
   const closeSearch = () => {
     runSearch(""); // empty query clears existing highlights
     setSearchOpen(false);
     setSearchQuery("");
   };
 
-  // --- Bookmarks ---
+  //save the now active bookmark slot, and send the bookmark position to the webview
   const saveBookmark = (slot: number) => {
     pendingSaveSlotRef.current = slot;
     webViewRef.current?.injectJavaScript(`
@@ -161,6 +173,7 @@ export default function HomeScreen() {
     `);
   };
 
+  // when the bookmark is pressed, it uses the goto action to scroll to the position its saved as 
   const handleBookmarkPress = (slot: number) => {
     const bm = bookmarks[slot];
     if (bm) {
@@ -173,6 +186,7 @@ export default function HomeScreen() {
     }
   };
 
+  // on long press remove the bookmark
   const handleBookmarkLongPress = (slot: number) => {
     setBookmarks((prev) => {
       const next = [...prev];
@@ -181,6 +195,7 @@ export default function HomeScreen() {
     });
   };
 
+  //ask the question to ai, and await the response. throw an error and stop loading if response doesnt load
   const askQuestion = async () => {
     if (!input.trim() || !bookReady) return;
     const question = input.trim();
@@ -209,8 +224,10 @@ export default function HomeScreen() {
   // scroll content (not a fixed RN overlay), so it scrolls away naturally.
   const topInset = insets.top + 70;
 
+  // loads the webview html including the top inset spacing above
   const html = buildReaderHtml(base64 ?? "", topInset);
 
+  // if the uri of a book isnt loaded then show placeholder text
   if (!uri) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -219,6 +236,7 @@ export default function HomeScreen() {
     );
   }
 
+  // if the book (uri) is exists but its content hasnt loaded, then show loading text
   if (!base64) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -227,6 +245,7 @@ export default function HomeScreen() {
     );
   }
 
+  // here set the fading opacity of the nav when the book is scrolled down.
   const navStyle = {
     opacity: navAnim,
   };
