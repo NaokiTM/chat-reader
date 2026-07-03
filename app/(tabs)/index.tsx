@@ -469,40 +469,48 @@ export default function HomeScreen() {
           // normal mode: burger button that opens the dropdown menu
           <>
             <Pressable
-              style={styles.burgerButton}
+              style={[
+                styles.burgerButton,
+                { backgroundColor: !darkMode ? "#111" : "#fff" },
+              ]}
               onPress={() => setMenuOpen((v) => !v)}
             >
               {/* <IconSymbol size={22} name="line.horizontal.3" color="white" /> */}
-              <Text style={styles.burgerText}>Menu</Text>
+              <Text style={[styles.burgerText, { color: !darkMode ? "white" : "black" }]}>
+                Menu
+              </Text>
             </Pressable>
 
               {menuOpen && (
-                <View style={styles.dropdown}>
+                <View style={[
+                    styles.dropdown,
+                    { backgroundColor: !darkMode ? "#111" : "#fff" },
+                  ]}>
                   <Pressable
                     style={styles.dropdownItem}
                     onPress={() => handleMenuSelect(openTranslate)}
                   >
-                    <Text style={styles.dropdownText}>MagicTranslate</Text>
+                    <Text style={{ color: !darkMode ? "white" : "black", fontSize: 15, fontWeight: "600" }}>MagicTranslate</Text>
                   </Pressable>
                   <Pressable
                     style={styles.dropdownItem}
                     onPress={() => handleMenuSelect(() => setSearchOpen(true))}
                   >
-                    <Text style={styles.dropdownText}>Search Chapter</Text>
+                    <Text style={{ color: !darkMode ? "white" : "black", fontSize: 15, fontWeight: "600" }}>Search Chapter</Text>
                   </Pressable>
                   <Pressable
                     style={styles.dropdownItem}
                     onPress={() => handleMenuSelect(openChat)}
                   >
-                    <Text style={styles.dropdownText}>Ask AI</Text>
+                    <Text style={{ color: !darkMode ? "white" : "black", fontSize: 15, fontWeight: "600" }}>Ask AI</Text>
                   </Pressable>
                   <Pressable
                     style={[styles.dropdownItem, styles.dropdownItemLast]}
                     onPress={() => handleMenuSelect(toggleDarkMode)}
                   >
                     <View style={styles.dropdownRow}>
-                      <Text style={styles.dropdownText}>Dark Mode</Text>
-                      <Text style={styles.dropdownToggleText}>{darkMode ? "On" : "Off"}</Text>
+                      <Text style={{ color: !darkMode ? "white" : "black", fontSize: 15, fontWeight: "600" }}>Dark Mode</Text>
+                      <Text style={{ color: !darkMode ? "white" : "black", fontSize: 15, fontWeight: "600" }}>{darkMode ? "On" : "Off"}</Text>
                     </View>
                   </Pressable>
                 </View>
