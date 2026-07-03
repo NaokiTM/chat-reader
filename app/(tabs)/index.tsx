@@ -472,7 +472,8 @@ export default function HomeScreen() {
               style={styles.burgerButton}
               onPress={() => setMenuOpen((v) => !v)}
             >
-              <IconSymbol size={22} name="line.horizontal.3" color="white" />
+              {/* <IconSymbol size={22} name="line.horizontal.3" color="white" /> */}
+              <Text style={styles.burgerText}>Menu</Text>
             </Pressable>
 
               {menuOpen && (
@@ -691,7 +692,7 @@ const styles = StyleSheet.create({
 
   burgerButton: {
     backgroundColor: "#111",
-    width: 44,
+    width: 100,
     height: 44,
     borderRadius: 22,
     justifyContent: "center",
@@ -896,4 +897,5 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   containerDark: { backgroundColor: "#181818" },
+  burgerText: { color: "white", fontSize: 16, fontWeight: "600" },
 });
