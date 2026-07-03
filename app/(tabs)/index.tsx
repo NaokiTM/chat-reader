@@ -67,11 +67,14 @@ export default function HomeScreen() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [darkMode, setDarkMode] = useState(false);
+
   // true once the backend has finished indexing the book and is ready to answer questions
   const [bookReady, setBookReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  
 
   // three bookmark slots, each storing a chapter index and scroll position, or null if unset
   const [bookmarks, setBookmarks] = useState<BookmarkSlot[]>([
@@ -93,6 +96,19 @@ export default function HomeScreen() {
   // separate from navAnim since layout props (bottom/right/borderRadius)
   // can't share a native-driven Animated.Value with opacity.
   const bookmarkAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!uri || typeof uri !== "string") return;
+    let cancelled = false;
+    writeReaderHtmlFile(uri, topInset, darkMode)
+      .then((u) => {
+        if (!cancelled) setHtmlUri(u);
+      })
+      .catch((e) => console.log("HTML write error:", e));
+    return () => {
+      cancelled = true;
+    };
+  }, [uri, topInset]); // darkMode intentionally excluded
 
   useEffect(() => {
     Animated.timing(bookmarkAnim, {
@@ -220,6 +236,17 @@ export default function HomeScreen() {
     `);
   };
 
+  const toggleDarkMode = () => {
+    setDarkMode((prev) => {
+      const next = !prev;
+      webViewRef.current?.injectJavaScript(`
+        window.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ action: "theme", dark: ${next} }) }));
+        true;
+      `);
+      return next;
+    });
+  };
+
   // sends the search action to the webview to highlight matches in the current chapter.
   const runSearch = (query: string) => {
     webViewRef.current?.injectJavaScript(`
@@ -312,7 +339,7 @@ export default function HomeScreen() {
   // if the uri of a book isn't loaded then show placeholder text
   if (!uri) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.container, darkMode && styles.containerDark]}>
         <Text style={styles.placeholder}>
           No book selected. Go to the Books tab to pick one.
         </Text>
@@ -448,28 +475,37 @@ export default function HomeScreen() {
               <IconSymbol size={22} name="line.horizontal.3" color="white" />
             </Pressable>
 
-            {menuOpen && (
-              <View style={styles.dropdown}>
-                <Pressable
-                  style={styles.dropdownItem}
-                  onPress={() => handleMenuSelect(openTranslate)}
-                >
-                  <Text style={styles.dropdownText}>MagicTranslate</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.dropdownItem}
-                  onPress={() => handleMenuSelect(() => setSearchOpen(true))}
-                >
-                  <Text style={styles.dropdownText}>Search Chapter</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.dropdownItem, styles.dropdownItemLast]}
-                  onPress={() => handleMenuSelect(openChat)}
-                >
-                  <Text style={styles.dropdownText}>Ask AI</Text>
-                </Pressable>
-              </View>
-            )}
+              {menuOpen && (
+                <View style={styles.dropdown}>
+                  <Pressable
+                    style={styles.dropdownItem}
+                    onPress={() => handleMenuSelect(openTranslate)}
+                  >
+                    <Text style={styles.dropdownText}>MagicTranslate</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.dropdownItem}
+                    onPress={() => handleMenuSelect(() => setSearchOpen(true))}
+                  >
+                    <Text style={styles.dropdownText}>Search Chapter</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.dropdownItem}
+                    onPress={() => handleMenuSelect(openChat)}
+                  >
+                    <Text style={styles.dropdownText}>Ask AI</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.dropdownItem, styles.dropdownItemLast]}
+                    onPress={() => handleMenuSelect(toggleDarkMode)}
+                  >
+                    <View style={styles.dropdownRow}>
+                      <Text style={styles.dropdownText}>Dark Mode</Text>
+                      <Text style={styles.dropdownToggleText}>{darkMode ? "On" : "Off"}</Text>
+                    </View>
+                  </Pressable>
+                </View>
+              )}
           </>
         )}
       </Animated.View>
@@ -568,7 +604,7 @@ export default function HomeScreen() {
                 <View
                   style={[
                     styles.bubble,
-                    item.role === "user" ? styles.userBubble : styles.aiBubble,
+                    item.role === "user" ? styles.userBubble : styles.aiBubble,                                                                                                                           
                   ]}
                 >
                   <Text style={styles.bubbleText}>{item.text}</Text>
@@ -849,4 +885,15 @@ const styles = StyleSheet.create({
     elevation: 11,
     overflow: "hidden", // keeps content clipped as borderRadius animates
   },
+  dropdownRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  dropdownToggleText: {
+    color: "#999",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  containerDark: { backgroundColor: "#181818" },
 });

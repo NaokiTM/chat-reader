@@ -1,16 +1,24 @@
 import { Directory, File, Paths } from "expo-file-system";
 
-export async function writeReaderHtmlFile(uri: string, topInset: number): Promise<string> {
-  const html = buildReaderHtml(uri, topInset);
+export async function writeReaderHtmlFile(
+  uri: string,
+  topInset: number,
+  darkMode: boolean = false
+): Promise<string> {
+  const html = buildReaderHtml(uri, topInset, darkMode);
   const dir = new Directory(Paths.cache, "reader");
   if (!dir.exists) dir.create();
   const file = new File(dir, "reader.html");
   if (file.exists) file.delete();
   file.write(html);
-  return file.uri; // file:///.../reader.html
+  return file.uri;
 }
 
-export function buildReaderHtml(uri: string, topInset: number): string {
+export function buildReaderHtml(
+  uri: string,
+  topInset: number,
+  darkMode: boolean = false
+): string {
   return `
     <!DOCTYPE html>
     <html>
@@ -21,20 +29,34 @@ export function buildReaderHtml(uri: string, topInset: number): string {
       <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
       <link href="https://fonts.googleapis.com/css2?family=Lusitana:wght@400;700&display=swap" rel="stylesheet">
       <style>
+        :root {
+          --bg: #fef0d8;
+          --text: #000;
+          --hl-bg: #d20f39;
+          --hl-text: #fff;
+        }
+        body.dark {
+          --bg: #181818;
+          --text: #e8e8e8;
+          --hl-bg: #f5c518;
+          --hl-text: #000;
+        }
         body {
           margin: 0;
           padding: 24px;
           padding-top: ${topInset}px;
-          background: #fef0d8;
+          background: var(--bg);
           font-size: 22px;
           line-height: 1.4;
-          color: #000;
+          color: var(--text);
           font-weight: 500;
+          transition: background 0.15s ease, color 0.15s ease;
         }
         #content { font-family: 'Lusitana', serif; }
+        .search-hl { background-color: var(--hl-bg); color: var(--hl-text); }
       </style>
     </head>
-    <body>
+    <body class="${darkMode ? "dark" : ""}">
       <div id="content">Loading...</div>
       <script>
         let chapters = [];
@@ -125,8 +147,6 @@ export function buildReaderHtml(uri: string, topInset: number): string {
               }
               const span = document.createElement("span");
               span.className = "search-hl";
-              span.style.backgroundColor = "#d20f39";
-              span.style.color = "#fff";
               span.style.borderRadius = "3px";
               span.style.padding = "0 1px";
               span.textContent = text.slice(searchPos, searchPos + query.length);
@@ -151,13 +171,9 @@ export function buildReaderHtml(uri: string, topInset: number): string {
           if (msg.action === "prev" && current > 0) showChapter(current - 1);
           if (msg.action === "goto") gotoChapter(msg.index, msg.scrollY);
           if (msg.action === "search") searchInChapter(msg.query);
+          if (msg.action === "theme") document.body.classList.toggle("dark", !!msg.dark);
         });
 
-        // Read the epub as an ArrayBuffer directly from the local file URI using
-        // XMLHttpRequest instead of fetch(). Android WebView's fetch() implementation
-        // frequently refuses file:// URLs outright (generic "Failed to fetch"), even
-        // with every allowFileAccess flag set — XHR is the reliable path for local
-        // file reads in WebView and avoids the base64-bridge memory blowup entirely.
         function loadBook() {
           const xhr = new XMLHttpRequest();
           xhr.open("GET", ${JSON.stringify(uri)}, true);
@@ -168,7 +184,6 @@ export function buildReaderHtml(uri: string, topInset: number): string {
               document.getElementById("content").innerText = "Error loading book: HTTP " + xhr.status;
               return;
             }
-            // status 0 is normal for file:// requests in WebView
             const buffer = xhr.response;
             if (!buffer) {
               document.getElementById("content").innerText = "Error loading book: empty response";
