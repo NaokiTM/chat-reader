@@ -68,6 +68,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(false);
 
   const [darkMode, setDarkMode] = useState(false);
+  const [translateLanguage, setTranslateLanguage] = useState("English");
 
   // true once the backend has finished indexing the book and is ready to answer questions
   const [bookReady, setBookReady] = useState(false);
@@ -336,6 +337,54 @@ export default function HomeScreen() {
     }
   };
 
+  const handleTranslateRequest = async (word: string, context: string) => {
+    try {
+      const bookId = uri!.split("/").pop() ?? uri!;
+      const res = await fetch(`${API_URL}/translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookId,
+          word,
+          context,
+          targetLanguage: translateLanguage,
+          currentChapter: chapterInfo.index,
+        }),
+      });
+      const data = await res.json();
+      webViewRef.current?.injectJavaScript(`
+        window.__applyTranslation(${JSON.stringify(data.translation ?? "")});
+        true;
+      `);
+    } catch (e) {
+      console.log("Translate error:", e);
+      webViewRef.current?.injectJavaScript(`window.__translationFailed(); true;`);
+    }
+  };
+
+  const handleExplainRequest = async (text: string) => {
+    try {
+      const bookId = uri!.split("/").pop() ?? uri!;
+      const res = await fetch(`${API_URL}/explain`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookId,
+          text,
+          currentChapter: chapterInfo.index,
+        }),
+      });
+      const data = await res.json();
+      webViewRef.current?.injectJavaScript(`
+        window.__showExplanation(${JSON.stringify(data.explanation ?? "No explanation available.")});
+        true;
+      `);
+    } catch (e) {
+      console.log("Explain error:", e);
+      webViewRef.current?.injectJavaScript(`window.__explanationFailed(); true;`);
+    }
+  };
+
   // if the uri of a book isn't loaded then show placeholder text
   if (!uri) {
     return (
@@ -399,6 +448,14 @@ export default function HomeScreen() {
             // show/hide nav chrome based on scroll direction reported by the WebView
             if (msg.type === "nav") {
               setNavVisible(msg.visible);
+            }
+
+            if (msg.type === "translateRequest") {
+              handleTranslateRequest(msg.word, msg.context);
+            }
+
+            if (msg.type === "explainRequest") {
+              handleExplainRequest(msg.text);
             }
 
             // WebView replied with its scrollY — complete the pending bookmark save
@@ -670,8 +727,12 @@ export default function HomeScreen() {
             data={LANGUAGES}
             keyExtractor={(item) => item}
             renderItem={({ item }) => (
-              <Pressable style={styles.languageRow}>
+              <Pressable
+                style={styles.languageRow}
+                onPress={() => setTranslateLanguage(item)}
+              >
                 <Text style={styles.languageText}>{item}</Text>
+                {translateLanguage === item && <Text style={styles.languageCheck}>✓</Text>}
               </Pressable>
             )}
           />
@@ -871,6 +932,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: "#262626",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
 
   languageText: {
@@ -906,4 +970,11 @@ const styles = StyleSheet.create({
   },
   containerDark: { backgroundColor: "#181818" },
   burgerText: { color: "white", fontSize: 16, fontWeight: "600" },
+
+
+  languageCheck: {
+    color: "#d20f39",
+    fontSize: 16,
+    fontWeight: "700",
+  },
 });
