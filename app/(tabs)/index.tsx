@@ -1,5 +1,3 @@
-// 
-
 import { Bookmark } from "@/components/ui/bookmark";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { API_URL } from "@/constants/api";
@@ -31,7 +29,7 @@ type Message = {
   text: string;
 };
 
-// type to indicate what information an active bookmark contains
+// type to indicate what information an active bookmark contains. clicking a bookmark scrolls to the place in the book that matches these.
 type BookmarkSlot = { chapterIndex: number; scrollY: number } | null;
 
 // template languages for MagicTranslate
@@ -54,11 +52,14 @@ const LANGUAGES = [
 
 export const BOOKMARK_BAR_WIDTH = 130;
 
+// The home / reader screen.
 export default function HomeScreen() {
+  // constants for the screen width and panel width for the AI chat (changes on open and close)
   const SCREEN_WIDTH = Dimensions.get("window").width;
   const PANEL_WIDTH = SCREEN_WIDTH;
 
   // animation values for the AI chat and translate panels sliding in from the left
+  // AI and translation panel initially completely offscreen to the left. 
   const slideAnim = useRef(new Animated.Value(-PANEL_WIDTH)).current;
   const translateSlideAnim = useRef(new Animated.Value(-PANEL_WIDTH)).current;
 
@@ -91,36 +92,11 @@ export default function HomeScreen() {
   const pendingSaveSlotRef = useRef<number | null>(null);
 
   // visibility of nav bar and menu (invisible when scrolling down)
-  // navAnim controls this visibility by setting opacity accordingly
   const [navVisible, setNavVisible] = useState(true);
   const navAnim = useRef(new Animated.Value(1)).current;
 
   // drives the bookmark bar's lift/rounding when the chapter bar fades out.
-  // separate from navAnim since layout props (bottom/right/borderRadius)
-  // can't share a native-driven Animated.Value with opacity.
   const bookmarkAnim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (!uri || typeof uri !== "string") return;
-    let cancelled = false;
-    writeReaderHtmlFile(uri, topInset, darkMode)
-      .then((u) => {
-        if (!cancelled) setHtmlUri(u);
-      })
-      .catch((e) => console.log("HTML write error:", e));
-    return () => {
-      cancelled = true;
-    };
-  }, [uri, topInset]); // darkMode intentionally excluded
-
-  useEffect(() => {
-    Animated.timing(bookmarkAnim, {
-      toValue: navVisible ? 1 : 0,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  }, [navVisible]);
 
   // path to the reader.html file written to disk (null until it's been written)
   const [htmlUri, setHtmlUri] = useState<string | null>(null);
@@ -239,6 +215,7 @@ export default function HomeScreen() {
     `);
   };
 
+  // toggles dark mode across the reader webview by injecting javascript
   const toggleDarkMode = () => {
     setDarkMode((prev) => {
       const next = !prev;
@@ -301,15 +278,19 @@ export default function HomeScreen() {
   // ask the question to ai, and await the response. throw an error and stop loading if response doesnt load
   const askQuestion = async () => {
     if (!input.trim() || !bookReady) return;
+
     const question = input.trim();
     setInput("");
+
     setMessages((prev) => [
       ...prev,
       { id: Date.now().toString(), role: "user", text: question },
     ]);
+
     setLoading(true);
 
     try {
+
       const bookId = uri!.split("/").pop() ?? uri!;
       const res = await fetch(`${API_URL}/chat`, {
         method: "POST",
@@ -325,7 +306,11 @@ export default function HomeScreen() {
         ...prev,
         { id: Date.now().toString() + "ai", role: "ai", text: data.answer },
       ]);
+
+
     } catch (e) {
+
+
       setMessages((prev) => [
         ...prev,
         {
@@ -334,6 +319,8 @@ export default function HomeScreen() {
           text: "Failed to get answer.",
         },
       ]);
+
+
     } finally {
       setLoading(false);
     }
