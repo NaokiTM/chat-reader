@@ -1,7 +1,7 @@
 import { Bookmark } from "@/components/ui/bookmark";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { API_URL } from "@/constants/api";
-import { writeReaderHtmlFile } from "@/constants/readerHtml";
+import { writeReaderHtmlFile } from "@/reader/readerHtml";
 import { BlurView } from "expo-blur";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -75,7 +75,6 @@ export default function HomeScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  
 
   // three bookmark slots, each storing a chapter index and scroll position, or null if unset
   const [bookmarks, setBookmarks] = useState<BookmarkSlot[]>([
@@ -358,7 +357,9 @@ export default function HomeScreen() {
       `);
     } catch (e) {
       console.log("Translate error:", e);
-      webViewRef.current?.injectJavaScript(`window.__translationFailed(); true;`);
+      webViewRef.current?.injectJavaScript(
+        `window.__translationFailed(); true;`,
+      );
     }
   };
 
@@ -381,7 +382,9 @@ export default function HomeScreen() {
       `);
     } catch (e) {
       console.log("Explain error:", e);
-      webViewRef.current?.injectJavaScript(`window.__explanationFailed(); true;`);
+      webViewRef.current?.injectJavaScript(
+        `window.__explanationFailed(); true;`,
+      );
     }
   };
 
@@ -533,45 +536,92 @@ export default function HomeScreen() {
               onPress={() => setMenuOpen((v) => !v)}
             >
               {/* <IconSymbol size={22} name="line.horizontal.3" color="white" /> */}
-              <Text style={[styles.burgerText, { color: !darkMode ? "white" : "black" }]}>
+              <Text
+                style={[
+                  styles.burgerText,
+                  { color: !darkMode ? "white" : "black" },
+                ]}
+              >
                 Menu
               </Text>
             </Pressable>
 
-              {menuOpen && (
-                <View style={[
-                    styles.dropdown,
-                    { backgroundColor: !darkMode ? "#111" : "#fff" },
-                  ]}>
-                  <Pressable
-                    style={styles.dropdownItem}
-                    onPress={() => handleMenuSelect(openTranslate)}
+            {menuOpen && (
+              <View
+                style={[
+                  styles.dropdown,
+                  { backgroundColor: !darkMode ? "#111" : "#fff" },
+                ]}
+              >
+                <Pressable
+                  style={styles.dropdownItem}
+                  onPress={() => handleMenuSelect(openTranslate)}
+                >
+                  <Text
+                    style={{
+                      color: !darkMode ? "white" : "black",
+                      fontSize: 15,
+                      fontWeight: "600",
+                    }}
                   >
-                    <Text style={{ color: !darkMode ? "white" : "black", fontSize: 15, fontWeight: "600" }}>MagicTranslate</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.dropdownItem}
-                    onPress={() => handleMenuSelect(() => setSearchOpen(true))}
+                    MagicTranslate
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={styles.dropdownItem}
+                  onPress={() => handleMenuSelect(() => setSearchOpen(true))}
+                >
+                  <Text
+                    style={{
+                      color: !darkMode ? "white" : "black",
+                      fontSize: 15,
+                      fontWeight: "600",
+                    }}
                   >
-                    <Text style={{ color: !darkMode ? "white" : "black", fontSize: 15, fontWeight: "600" }}>Search Chapter</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.dropdownItem}
-                    onPress={() => handleMenuSelect(openChat)}
+                    Search Chapter
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={styles.dropdownItem}
+                  onPress={() => handleMenuSelect(openChat)}
+                >
+                  <Text
+                    style={{
+                      color: !darkMode ? "white" : "black",
+                      fontSize: 15,
+                      fontWeight: "600",
+                    }}
                   >
-                    <Text style={{ color: !darkMode ? "white" : "black", fontSize: 15, fontWeight: "600" }}>Ask AI</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.dropdownItem, styles.dropdownItemLast]}
-                    onPress={() => handleMenuSelect(toggleDarkMode)}
-                  >
-                    <View style={styles.dropdownRow}>
-                      <Text style={{ color: !darkMode ? "white" : "black", fontSize: 15, fontWeight: "600" }}>Dark Mode</Text>
-                      <Text style={{ color: !darkMode ? "white" : "black", fontSize: 15, fontWeight: "600" }}>{darkMode ? "On" : "Off"}</Text>
-                    </View>
-                  </Pressable>
-                </View>
-              )}
+                    Ask AI
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.dropdownItem, styles.dropdownItemLast]}
+                  onPress={() => handleMenuSelect(toggleDarkMode)}
+                >
+                  <View style={styles.dropdownRow}>
+                    <Text
+                      style={{
+                        color: !darkMode ? "white" : "black",
+                        fontSize: 15,
+                        fontWeight: "600",
+                      }}
+                    >
+                      Dark Mode
+                    </Text>
+                    <Text
+                      style={{
+                        color: !darkMode ? "white" : "black",
+                        fontSize: 15,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {darkMode ? "On" : "Off"}
+                    </Text>
+                  </View>
+                </Pressable>
+              </View>
+            )}
           </>
         )}
       </Animated.View>
@@ -670,7 +720,7 @@ export default function HomeScreen() {
                 <View
                   style={[
                     styles.bubble,
-                    item.role === "user" ? styles.userBubble : styles.aiBubble,                                                                                                                           
+                    item.role === "user" ? styles.userBubble : styles.aiBubble,
                   ]}
                 >
                   <Text style={styles.bubbleText}>{item.text}</Text>
@@ -732,7 +782,9 @@ export default function HomeScreen() {
                 onPress={() => setTranslateLanguage(item)}
               >
                 <Text style={styles.languageText}>{item}</Text>
-                {translateLanguage === item && <Text style={styles.languageCheck}>✓</Text>}
+                {translateLanguage === item && (
+                  <Text style={styles.languageCheck}>✓</Text>
+                )}
               </Pressable>
             )}
           />
@@ -970,7 +1022,6 @@ const styles = StyleSheet.create({
   },
   containerDark: { backgroundColor: "#181818" },
   burgerText: { color: "white", fontSize: 16, fontWeight: "600" },
-
 
   languageCheck: {
     color: "#d20f39",
