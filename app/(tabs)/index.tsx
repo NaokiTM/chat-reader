@@ -67,7 +67,7 @@ export default function HomeScreen() {
   const [translateOpen, setTranslateOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const [chapterInfo, setChapterInfo] = useState({ index: 0, total: 0 });
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [chatLog, setChatLog] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -277,20 +277,27 @@ export default function HomeScreen() {
 
   // ask the question to ai, and await the response. throw an error and stop loading if response doesnt load
   const askQuestion = async () => {
+
+    // if input is empty or book isnt ready (chapters haven't loaded etc) then dont ask the question. 
     if (!input.trim() || !bookReady) return;
 
+    //the question is trimmed of whitespace and input is cleared after question request is sent
     const question = input.trim();
     setInput("");
 
-    setMessages((prev) => [
+    //adds the question to the list of chatLog. 
+    setChatLog((prev) => [
       ...prev,
       { id: Date.now().toString(), role: "user", text: question },
     ]);
 
+    // sets loading state to true while waiting for the API response
     setLoading(true);
 
     try {
 
+      // send the question along with the bookID and current chapter for context to backend. 
+      // await the response, and add the AI response to the message list, along with the attached answer. 
       const bookId = uri!.split("/").pop() ?? uri!;
       const res = await fetch(`${API_URL}/chat`, {
         method: "POST",
@@ -302,7 +309,7 @@ export default function HomeScreen() {
         }),
       });
       const data = await res.json();
-      setMessages((prev) => [
+      setChatLog((prev) => [
         ...prev,
         { id: Date.now().toString() + "ai", role: "ai", text: data.answer },
       ]);
@@ -310,8 +317,8 @@ export default function HomeScreen() {
 
     } catch (e) {
 
-
-      setMessages((prev) => [
+      // if API request fails, add a failure message to the message list / chat log so far. 
+      setChatLog((prev) => [
         ...prev,
         {
           id: Date.now().toString() + "ai",
@@ -322,12 +329,16 @@ export default function HomeScreen() {
 
 
     } finally {
+      // set loading state to false after the request is complete, regardless of success or failure.
       setLoading(false);
     }
   };
 
+
   const handleTranslateRequest = async (word: string, context: string) => {
     try {
+
+      // send request to LLM API with the book, context, chapter, 
       const bookId = uri!.split("/").pop() ?? uri!;
       const res = await fetch(`${API_URL}/translate`, {
         method: "POST",
@@ -340,21 +351,31 @@ export default function HomeScreen() {
           currentChapter: chapterInfo.index,
         }),
       });
+
+      // await response, and inject the translation into webview
       const data = await res.json();
       webViewRef.current?.injectJavaScript(`
         window.__applyTranslation(${JSON.stringify(data.translation ?? "")});
         true;
       `);
+
+
     } catch (e) {
+
+      // inject into webview translation failure
       console.log("Translate error:", e);
       webViewRef.current?.injectJavaScript(
         `window.__translationFailed(); true;`,
       );
+
+
     }
   };
 
   const handleExplainRequest = async (text: string) => {
     try {
+
+      // as before, pass the book and the highlighted text into the API request
       const bookId = uri!.split("/").pop() ?? uri!;
       const res = await fetch(`${API_URL}/explain`, {
         method: "POST",
@@ -365,12 +386,18 @@ export default function HomeScreen() {
           currentChapter: chapterInfo.index,
         }),
       });
+
+      // await a response, and inject the explanation into the webview if available. 
       const data = await res.json();
       webViewRef.current?.injectJavaScript(`
         window.__showExplanation(${JSON.stringify(data.explanation ?? "No explanation available.")});
         true;
       `);
+
+
     } catch (e) {
+
+      // inject the explanation error otherwise
       console.log("Explain error:", e);
       webViewRef.current?.injectJavaScript(
         `window.__explanationFailed(); true;`,
@@ -704,7 +731,7 @@ export default function HomeScreen() {
             </View>
 
             <FlatList
-              data={messages}
+              data={chatLog}
               keyExtractor={(m) => m.id}
               renderItem={({ item }) => (
                 <View
