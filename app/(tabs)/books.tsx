@@ -9,7 +9,8 @@ import { router } from 'expo-router';
 import styles from './styles/booksStyles';
 
 
-// type outside to avoid re-render
+//type outside function to avoid re-render
+// defines the structure of every book object added to books list 
 type Book = {
   id: string;
   title: string;
@@ -17,18 +18,21 @@ type Book = {
   type: "epub" | "pdf" | "docx";
 };
 
+//a persistent key to store the books list in AsyncStorage. prevents reset of books list on app reload
 const BOOKS_KEY = 'stored_books';
 
+// function to render book list screen
 export default function TabTwoScreen() {
-  const insets = useSafeAreaInsets();
-  const [books, setBooks] = useState<Book[]>([]);
-  const [deleteMode, setDeleteMode] = useState(false);
+  const insets = useSafeAreaInsets();  //areas that shouldnt overlap. used for padding in styles
+  const [books, setBooks] = useState<Book[]>([]);  //the array of books being stored
+  const [deleteMode, setDeleteMode] = useState(false);   //triggered when the trash can is pressed so users can delete multiple books
 
+  // resets the books but filters out the one the user wants to delete
   const deleteBook = (id: string) => {
     setBooks((prev) => prev.filter((b) => b.id !== id));
   };
 
-  // Load books from storage on mount
+  // Load books from storage on mount. only gets books saved in BOOKS_KEY (asyncstorage)
   useEffect(() => {
     const loadBooks = async () => {
       const json = await AsyncStorage.getItem(BOOKS_KEY);  
@@ -44,41 +48,61 @@ export default function TabTwoScreen() {
     loadBooks();
   }, []);
 
-  // Save books to storage whenever list changes
+  // Save book info to AsyncStorage whenever books list changes (not the book file itself)
   useEffect(() => {
     AsyncStorage.setItem(BOOKS_KEY, JSON.stringify(books));
   }, [books]);
 
+
   const importBook = async () => {
+
+    // lets the user select a document for MIME types epub, pdf, docx. 
     const result = await DocumentPicker.getDocumentAsync({
       type: [
         "application/epub+zip",
         "application/pdf",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       ],
-      multiple: true,
+      multiple: true,  //user can select multiple files at once
     });
 
+    // if the user leaves the document picker without selecting a file then stop function
     if (result.canceled) return;
 
+    // create a directory for books if it doesn't exist
     const booksDir = new Directory(Paths.document, "books");
     if (!booksDir.exists) booksDir.create();
 
+    // create an array to hold the new books that will be added to the books list
     const newBooks: Book[] = [];
 
+    
+    // loop through the selected files and copy them to the books directory, then add them to the books list  
     for (const asset of result.assets) {
+
+      // create a destination file path for the selected book in the books directory
       const destination = new File(booksDir, asset.name);
+
+      // delete duplicate files
       if (destination.exists) destination.delete();
 
+      // find the book source file, and add it to the new destination file path in the app
       const source = new File(asset.uri);
       source.copy(destination);
 
+      // determine the file type based on the extension, and set the book type accordingly. default is EPUB
       const extension = asset.name.split(".").pop()?.toLowerCase();
-      const fileType: Book["type"] =
-        extension === "pdf" ? "pdf"
-        : extension === "docx" ? "docx"
-        : "epub";
+      let fileType: Book["type"];
 
+      if (extension === "pdf") {
+          fileType = "pdf";
+      } else if (extension === "docx") {
+          fileType = "docx";
+      } else {
+          fileType = "epub";
+      }
+
+      // push the new book onto the array (each book pushed seperately inside the loop above)
       newBooks.push({
         id: Date.now().toString() + Math.random(),
         title: asset.name.replace(/\.(epub|pdf|docx)$/i, ""),
@@ -87,6 +111,7 @@ export default function TabTwoScreen() {
       });
     }
 
+    // update the books array with the previous books, + all new books
     setBooks((prev) => [...prev, ...newBooks]);
   };
 
