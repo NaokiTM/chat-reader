@@ -59,7 +59,7 @@ export default function HomeScreen() {
   const PANEL_WIDTH = SCREEN_WIDTH;
 
   // animation values for the AI chat and translate panels sliding in from the left
-  // AI and translation panel initially completely offscreen to the left. 
+  // AI and translation panel initially completely offscreen to the left.
   const slideAnim = useRef(new Animated.Value(-PANEL_WIDTH)).current;
   const translateSlideAnim = useRef(new Animated.Value(-PANEL_WIDTH)).current;
 
@@ -124,6 +124,7 @@ export default function HomeScreen() {
   //   }).start();
   // }, [navVisible]);
 
+
   // an easing effect is added when the nav goes invisible
   useEffect(() => {
     Animated.timing(navAnim, {
@@ -134,6 +135,7 @@ export default function HomeScreen() {
     }).start();
   }, [navVisible]);
 
+
   // close nav menus when nav goes invisible so they don't reappear mid-animation
   useEffect(() => {
     if (!navVisible) {
@@ -141,6 +143,7 @@ export default function HomeScreen() {
       setSearchOpen(false);
     }
   }, [navVisible]);
+
 
   // write the reader HTML out to an actual file on disk so the WebView loads it
   // with a real file:// origin (needed for it to be allowed to fetch() the epub).
@@ -157,6 +160,7 @@ export default function HomeScreen() {
     };
   }, [uri, topInset]);
 
+
   // OPENS the ai chat window. close interfering menus too.
   const openChat = () => {
     if (translateOpen) closeTranslate();
@@ -169,6 +173,7 @@ export default function HomeScreen() {
     }).start();
   };
 
+
   // CLOSES the ai chat window.
   const closeChat = () => {
     Animated.timing(slideAnim, {
@@ -178,6 +183,7 @@ export default function HomeScreen() {
       useNativeDriver: true,
     }).start(() => setChatOpen(false));
   };
+
 
   // OPENS the translate panel. close interfering menus too.
   const openTranslate = () => {
@@ -191,6 +197,7 @@ export default function HomeScreen() {
     }).start();
   };
 
+
   // CLOSES the translate panel.
   const closeTranslate = () => {
     Animated.timing(translateSlideAnim, {
@@ -201,11 +208,13 @@ export default function HomeScreen() {
     }).start(() => setTranslateOpen(false));
   };
 
+
   // helper function to pass a menu in and open or close it. closes the menu after the action is performed.
   const handleMenuSelect = (action: () => void) => {
     setMenuOpen(false);
     action();
   };
+
 
   // sends the next or previous chapter action to webview. the webview can then rerender the chapter.
   const sendToWebView = (action: "next" | "prev") => {
@@ -214,6 +223,7 @@ export default function HomeScreen() {
       true;
     `);
   };
+
 
   // toggles dark mode across the reader webview by injecting javascript
   const toggleDarkMode = () => {
@@ -227,6 +237,7 @@ export default function HomeScreen() {
     });
   };
 
+
   // sends the search action to the webview to highlight matches in the current chapter.
   const runSearch = (query: string) => {
     webViewRef.current?.injectJavaScript(`
@@ -235,12 +246,14 @@ export default function HomeScreen() {
     `);
   };
 
+
   // close the search bar and clear any existing highlights.
   const closeSearch = () => {
     runSearch(""); // empty query clears existing highlights
     setSearchOpen(false);
     setSearchQuery("");
   };
+
 
   // save the bookmark slot, requesting the WebView's current scrollY via postMessage.
   // the response is handled in onMessage below, keyed on pendingSaveSlotRef.
@@ -251,6 +264,7 @@ export default function HomeScreen() {
       true;
     `);
   };
+
 
   // when the bookmark is pressed, it uses the goto action to scroll to the position its saved as.
   // if empty, saves the current position instead.
@@ -266,6 +280,7 @@ export default function HomeScreen() {
     }
   };
 
+
   // on long press remove the bookmark
   const handleBookmarkLongPress = (slot: number) => {
     setBookmarks((prev) => {
@@ -275,17 +290,17 @@ export default function HomeScreen() {
     });
   };
 
+  
   // ask the question to ai, and await the response. throw an error and stop loading if response doesnt load
   const askQuestion = async () => {
-
-    // if input is empty or book isnt ready (chapters haven't loaded etc) then dont ask the question. 
+    // if input is empty or book isnt ready (chapters haven't loaded etc) then dont ask the question.
     if (!input.trim() || !bookReady) return;
 
     //the question is trimmed of whitespace and input is cleared after question request is sent
     const question = input.trim();
     setInput("");
 
-    //adds the question to the list of chatLog. 
+    //adds the question to the list of chatLog.
     setChatLog((prev) => [
       ...prev,
       { id: Date.now().toString(), role: "user", text: question },
@@ -295,9 +310,8 @@ export default function HomeScreen() {
     setLoading(true);
 
     try {
-
-      // send the question along with the bookID and current chapter for context to backend. 
-      // await the response, and add the AI response to the message list, along with the attached answer. 
+      // send the question along with the bookID and current chapter for context to backend.
+      // await the response, and add the AI response to the message list, along with the attached answer.
       const bookId = uri!.split("/").pop() ?? uri!;
       const res = await fetch(`${API_URL}/chat`, {
         method: "POST",
@@ -313,11 +327,8 @@ export default function HomeScreen() {
         ...prev,
         { id: Date.now().toString() + "ai", role: "ai", text: data.answer },
       ]);
-
-
     } catch (e) {
-
-      // if API request fails, add a failure message to the message list / chat log so far. 
+      // if API request fails, add a failure message to the message list / chat log so far.
       setChatLog((prev) => [
         ...prev,
         {
@@ -326,19 +337,15 @@ export default function HomeScreen() {
           text: "Failed to get answer.",
         },
       ]);
-
-
     } finally {
       // set loading state to false after the request is complete, regardless of success or failure.
       setLoading(false);
     }
   };
 
-
   const handleTranslateRequest = async (word: string, context: string) => {
     try {
-
-      // send request to LLM API with the book, context, chapter, 
+      // send request to LLM API with the book, context, chapter,
       const bookId = uri!.split("/").pop() ?? uri!;
       const res = await fetch(`${API_URL}/translate`, {
         method: "POST",
@@ -358,23 +365,17 @@ export default function HomeScreen() {
         window.__applyTranslation(${JSON.stringify(data.translation ?? "")});
         true;
       `);
-
-
     } catch (e) {
-
       // inject into webview translation failure
       console.log("Translate error:", e);
       webViewRef.current?.injectJavaScript(
         `window.__translationFailed(); true;`,
       );
-
-
     }
   };
 
   const handleExplainRequest = async (text: string) => {
     try {
-
       // as before, pass the book and the highlighted text into the API request
       const bookId = uri!.split("/").pop() ?? uri!;
       const res = await fetch(`${API_URL}/explain`, {
@@ -387,16 +388,13 @@ export default function HomeScreen() {
         }),
       });
 
-      // await a response, and inject the explanation into the webview if available. 
+      // await a response, and inject the explanation into the webview if available.
       const data = await res.json();
       webViewRef.current?.injectJavaScript(`
         window.__showExplanation(${JSON.stringify(data.explanation ?? "No explanation available.")});
         true;
       `);
-
-
     } catch (e) {
-
       // inject the explanation error otherwise
       console.log("Explain error:", e);
       webViewRef.current?.injectJavaScript(
@@ -810,4 +808,3 @@ export default function HomeScreen() {
     </View>
   );
 }
-

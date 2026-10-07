@@ -1,5 +1,5 @@
-export function readerScript(uri: string): string {
-    return `
+// This function is just to be able to have syntax highlighting / visible commenting, since it doesn't apply to the working file which is a template literal
+
 let chapters = [];
 let current = 0;
 let lastY = 0;
@@ -644,5 +644,3 @@ function loadBook() {
 
 // Immediately load the book when the script is executed
 loadBook();
-    `;
-}
