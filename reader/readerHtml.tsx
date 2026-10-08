@@ -49,7 +49,7 @@ export function buildReaderHtml(uri: string, topInset: number): string {
       </div>
 
       <script>
-        ${readerScript}
+        ${readerScript(uri)}
       </script>
     </body>
     </html>

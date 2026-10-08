@@ -1,7 +1,7 @@
 import { Bookmark } from "@/components/ui/bookmark";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { API_URL } from "@/constants/api";
-import { writeReaderHtmlFile } from "@/reader/readerScript";
+import { writeReaderHtmlFile } from "@/reader/readerHtml";
 import { BlurView } from "expo-blur";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
