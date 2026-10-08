@@ -3,15 +3,15 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"]
     }
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-, "reader/readerScript.ts", "reader/readerScriptColor.ts"  ]
+    "expo-env.d.ts",
+    "reader/readerScript.ts",
+    "reader/readerScriptColor.ts"
+  ]
 }

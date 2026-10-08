@@ -1,18 +1,26 @@
+import { Directory, File, Paths } from "expo-file-system";
 import { readerScript } from "./readerScript";
 import { readerStyles } from "./readerStyles";
 
-// export async function writeReaderHtmlFile(
-//   uri: string,
-//   topInset: number,
-// ): Promise<string> {
-//   const html = buildReaderHtml(uri, topInset);
-//   const dir = new Directory(Paths.cache, "reader");
-//   if (!dir.exists) dir.create();
-//   const file = new File(dir, "reader.html");
-//   if (file.exists) file.delete();
-//   file.write(html);
-//   return file.uri; // file:///.../reader.html
-// }
+//Wouldn't move this to readerScript, since readerScript runs inside webview whilst this function doesn't.
+export async function writeReaderHtmlFile(
+  uri: string,  //receive the books uri
+  topInset: number, //amount of space at the top of the reader
+): Promise<string> {
+  // builds the actual reader webview
+  const html = buildReaderHtml(uri, topInset);
+
+  //create directory to store reader in the cache. helps with organisation. if it doesnt exist then create one. 
+  const dir = new Directory(Paths.cache, "reader");
+  if (!dir.exists) dir.create();
+
+  //create a new reader HTML instance in dir each time this is run (once per session). if 
+  const file = new File(dir, "reader.html");
+  if (file.exists) file.delete();
+
+  file.write(html);
+  return file.uri; // file:///.../reader.html
+}
 
 export function buildReaderHtml(uri: string, topInset: number): string {
   return `

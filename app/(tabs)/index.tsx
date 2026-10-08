@@ -1,27 +1,26 @@
 import { Bookmark } from "@/components/ui/bookmark";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { API_URL } from "@/constants/api";
-import { writeReaderHtmlFile } from "@/reader/readerHtml";
+import { writeReaderHtmlFile } from "@/reader/readerScript";
 import { BlurView } from "expo-blur";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-    Animated,
-    Dimensions,
-    Easing,
-    FlatList,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Animated,
+  Dimensions,
+  Easing,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import styles from "../../tabstyles/indexStyles";
-import { BOOKMARK_BAR_WIDTH } from "@/constants/constants";
 
 // message template to send to AI chat
 type Message = {
@@ -50,8 +49,6 @@ const LANGUAGES = [
   "Dutch",
   "Turkish",
 ];
-
-
 
 // The home / reader screen.
 export default function HomeScreen() {
