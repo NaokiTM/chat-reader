@@ -23,20 +23,27 @@ window.addEventListener("scroll", () => {
     const y = window.scrollY;
     const delta = y - lastY;
 
+    //scrolling down 
     if (delta > 2) {
+        // resets the accumulated upward scrolling
         upAccum = 0;
 
+        // Hide nav bar once scrolled more than 40px from the top
         if (y > 40) {
             setNavVisible(false);
         }
+    // scrolling up 
     } else if (delta < -2) {
+        // add upward scroll to the accum
         upAccum += -delta;
 
+        //show nav bar if scrolled up > 60px or reached the top of the page
         if (upAccum > 60 || y <= 0) {
             setNavVisible(true);
         }
     }
 
+    // 
     lastY = y;
 });
 

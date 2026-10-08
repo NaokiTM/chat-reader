@@ -1,4 +1,5 @@
 import BOOKMARK_BAR_WIDTH from "../index";
+import { StyleSheet } from "react-native";
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fef0d8" },
