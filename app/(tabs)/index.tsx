@@ -6,21 +6,22 @@ import { BlurView } from "expo-blur";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  Animated,
-  Dimensions,
-  Easing,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    Animated,
+    Dimensions,
+    Easing,
+    FlatList,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
-import styles from "./styles/indexStyles";
+import styles from "../../tabstyles/indexStyles";
+import { BOOKMARK_BAR_WIDTH } from "@/constants/constants";
 
 // message template to send to AI chat
 type Message = {
@@ -50,7 +51,7 @@ const LANGUAGES = [
   "Turkish",
 ];
 
-export const BOOKMARK_BAR_WIDTH = 130;
+
 
 // The home / reader screen.
 export default function HomeScreen() {
@@ -124,7 +125,6 @@ export default function HomeScreen() {
   //   }).start();
   // }, [navVisible]);
 
-
   // an easing effect is added when the nav goes invisible
   useEffect(() => {
     Animated.timing(navAnim, {
@@ -135,7 +135,6 @@ export default function HomeScreen() {
     }).start();
   }, [navVisible]);
 
-
   // close nav menus when nav goes invisible so they don't reappear mid-animation
   useEffect(() => {
     if (!navVisible) {
@@ -143,7 +142,6 @@ export default function HomeScreen() {
       setSearchOpen(false);
     }
   }, [navVisible]);
-
 
   // write the reader HTML out to an actual file on disk so the WebView loads it
   // with a real file:// origin (needed for it to be allowed to fetch() the epub).
@@ -160,7 +158,6 @@ export default function HomeScreen() {
     };
   }, [uri, topInset]);
 
-
   // OPENS the ai chat window. close interfering menus too.
   const openChat = () => {
     if (translateOpen) closeTranslate();
@@ -173,7 +170,6 @@ export default function HomeScreen() {
     }).start();
   };
 
-
   // CLOSES the ai chat window.
   const closeChat = () => {
     Animated.timing(slideAnim, {
@@ -183,7 +179,6 @@ export default function HomeScreen() {
       useNativeDriver: true,
     }).start(() => setChatOpen(false));
   };
-
 
   // OPENS the translate panel. close interfering menus too.
   const openTranslate = () => {
@@ -197,7 +192,6 @@ export default function HomeScreen() {
     }).start();
   };
 
-
   // CLOSES the translate panel.
   const closeTranslate = () => {
     Animated.timing(translateSlideAnim, {
@@ -208,13 +202,11 @@ export default function HomeScreen() {
     }).start(() => setTranslateOpen(false));
   };
 
-
   // helper function to pass a menu in and open or close it. closes the menu after the action is performed.
   const handleMenuSelect = (action: () => void) => {
     setMenuOpen(false);
     action();
   };
-
 
   // sends the next or previous chapter action to webview. the webview can then rerender the chapter.
   const sendToWebView = (action: "next" | "prev") => {
@@ -223,7 +215,6 @@ export default function HomeScreen() {
       true;
     `);
   };
-
 
   // toggles dark mode across the reader webview by injecting javascript
   const toggleDarkMode = () => {
@@ -237,7 +228,6 @@ export default function HomeScreen() {
     });
   };
 
-
   // sends the search action to the webview to highlight matches in the current chapter.
   const runSearch = (query: string) => {
     webViewRef.current?.injectJavaScript(`
@@ -246,14 +236,12 @@ export default function HomeScreen() {
     `);
   };
 
-
   // close the search bar and clear any existing highlights.
   const closeSearch = () => {
     runSearch(""); // empty query clears existing highlights
     setSearchOpen(false);
     setSearchQuery("");
   };
-
 
   // save the bookmark slot, requesting the WebView's current scrollY via postMessage.
   // the response is handled in onMessage below, keyed on pendingSaveSlotRef.
@@ -264,7 +252,6 @@ export default function HomeScreen() {
       true;
     `);
   };
-
 
   // when the bookmark is pressed, it uses the goto action to scroll to the position its saved as.
   // if empty, saves the current position instead.
@@ -280,7 +267,6 @@ export default function HomeScreen() {
     }
   };
 
-
   // on long press remove the bookmark
   const handleBookmarkLongPress = (slot: number) => {
     setBookmarks((prev) => {
@@ -290,7 +276,6 @@ export default function HomeScreen() {
     });
   };
 
-  
   // ask the question to ai, and await the response. throw an error and stop loading if response doesnt load
   const askQuestion = async () => {
     // if input is empty or book isnt ready (chapters haven't loaded etc) then dont ask the question.

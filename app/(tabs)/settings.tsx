@@ -1,6 +1,6 @@
 import { ScrollView, StyleSheet, Text, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import styles from "./styles/settingsStyles";
+import styles from "../../tabstyles/settingsStyles";
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();

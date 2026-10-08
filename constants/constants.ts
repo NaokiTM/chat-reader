@@ -1,0 +1,1 @@
+export const BOOKMARK_BAR_WIDTH = 130;

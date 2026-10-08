@@ -6,7 +6,7 @@ import { Directory, File, Paths } from "expo-file-system";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import styles from './styles/booksStyles';
+import styles from '../../tabstyles/booksStyles';
 
 
 //type outside function to avoid re-render
