@@ -4,7 +4,8 @@ import { API_URL } from "@/constants/api";
 import { writeReaderHtmlFile } from "@/reader/readerHtml";
 import { BlurView } from "expo-blur";
 import { useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
+import { Directory, File, Paths } from "expo-file-system";
 import {
   Animated,
   Dimensions,
@@ -101,11 +102,19 @@ export default function HomeScreen() {
 
   // uri is effectively the file path to the epub book that the reader sends to the webview.
   // declared early since the effects below depend on it.
-  const { uri } = useLocalSearchParams<{
-    uri: string;
+  const { fileName } = useLocalSearchParams<{
+    fileName: string;
     title: string;
     type: string;
   }>();
+
+  const uri = useMemo(
+    () =>
+      fileName
+        ? new File(new Directory(Paths.document, "books"), fileName).uri
+        : undefined,
+    [fileName],
+  );
 
   // extra top padding inside the WebView's own document so the chapter title
   // starts below the burger button initially. lives in the page's own

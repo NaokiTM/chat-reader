@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import styles from '../../tabstyles/booksStyles';
+import * as LegacyFS from "expo-file-system/legacy";
 
 
 //type outside function to avoid re-render
@@ -14,7 +15,7 @@ import styles from '../../tabstyles/booksStyles';
 type Book = {
   id: string;
   title: string;
-  uri: string;
+  fileName: string;
   type: "epub" | "pdf" | "docx";
 };
 
@@ -38,10 +39,9 @@ export default function TabTwoScreen() {
       const json = await AsyncStorage.getItem(BOOKS_KEY);  
       if (json) {
         const parsed: Book[] = JSON.parse(json);
-        const migrated = parsed.map((b) => ({
-          ...b,
-          type: b.type ?? "epub",
-        }));
+        const migrated = parsed
+          .filter((b) => b.fileName)
+          .map((b) => ({ ...b, type: b.type ?? "epub" }));
         setBooks(migrated);
       }
     };
@@ -64,6 +64,7 @@ export default function TabTwoScreen() {
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       ],
       multiple: true,  //user can select multiple files at once
+      copyToCacheDirectory: false,
     });
 
     // if the user leaves the document picker without selecting a file then stop function
@@ -87,8 +88,13 @@ export default function TabTwoScreen() {
       if (destination.exists) destination.delete();
 
       // find the book source file, and add it to the new destination file path in the app
-      const source = new File(asset.uri);
-      source.copy(destination);
+      try {
+        await LegacyFS.copyAsync({ from: asset.uri, to: destination.uri });
+      } catch (e) {
+        console.log("copy failed for", asset.name, e);
+        continue; // skip this book instead of adding a broken entry
+      }
+      console.log("copied:", destination.uri, "exists:", destination.exists);
 
       // determine the file type based on the extension, and set the book type accordingly. default is EPUB
       const extension = asset.name.split(".").pop()?.toLowerCase();
@@ -106,7 +112,7 @@ export default function TabTwoScreen() {
       newBooks.push({
         id: Date.now().toString() + Math.random(),
         title: asset.name.replace(/\.(epub|pdf|docx)$/i, ""),
-        uri: destination.uri,
+        fileName: asset.name,
         type: fileType,
       });
     }
@@ -122,9 +128,11 @@ export default function TabTwoScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingBottom: 80 }}
         renderItem={({ item }) => (
-          <Pressable style={styles.card}   onPress={() => !deleteMode && router.push({ 
+          <Pressable 
+            style={styles.card}   
+            onPress={() => !deleteMode && router.push({ 
               pathname: "/", 
-              params: { uri: item.uri, title: item.title, type: item.type } 
+              params: { fileName: item.fileName, title: item.title, type: item.type } 
             })}
           >
             {deleteMode && (

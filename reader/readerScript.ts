@@ -1,5 +1,5 @@
 export function readerScript(uri: string): string {
-    return `
+    return String.raw`
 let chapters = [];
 let current = 0;
 let lastY = 0;
@@ -523,6 +523,7 @@ window.addEventListener(
 
 // Loads the book from the specified URI, extracts chapters, and displays the first chapter
 function loadBook() {
+
     const xhr = new XMLHttpRequest();
 
     // Open a GET request to the specified URI to load the book
@@ -642,7 +643,9 @@ function loadBook() {
     //handle request errors
     xhr.onerror = function () {
         document.getElementById("content").innerText =
-            "Error loading book: request failed";
+            "Request failed. status=" + xhr.status +
+            " readyState=" + xhr.readyState +
+            " url=" + ${JSON.stringify(uri)};
     };
 
     // send the request to load the book
