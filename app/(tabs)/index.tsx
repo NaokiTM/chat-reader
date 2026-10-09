@@ -224,14 +224,12 @@ export default function HomeScreen() {
 
   // toggles dark mode across the reader webview by injecting javascript
   const toggleDarkMode = () => {
-    setDarkMode((prev) => {
-      const next = !prev;
-      webViewRef.current?.injectJavaScript(`
-        window.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ action: "theme", dark: ${next} }) }));
-        true;
-      `);
-      return next;
-    });
+    const next = !darkMode;
+    setDarkMode(next);
+    webViewRef.current?.injectJavaScript(`
+      window.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ action: "theme", dark: ${next} }) }));
+      true;
+    `);
   };
 
   // sends the search action to the webview to highlight matches in the current chapter.

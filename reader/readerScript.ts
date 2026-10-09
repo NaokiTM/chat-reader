@@ -518,6 +518,11 @@ window.addEventListener(
         if (msg.action === "search") {
             searchInChapter(msg.query);
         }
+
+        // switch between light and dark theme
+        if (msg.action === "theme") {
+            document.body.classList.toggle("dark", msg.dark);
+        }
     }
 );
 

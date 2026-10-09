@@ -1,5 +1,6 @@
 // used formatter to format, hence different formatting style
-export const readerStyles = ` body {
+export const readerStyles = ` 
+body {
      margin: 0;
      padding: 24px;
      padding-top: var(--top-inset);
@@ -8,6 +9,10 @@ export const readerStyles = ` body {
      line-height: 1.4;
      color: #000;
      font-weight: 500;
+}
+body.dark {
+    background: #111;
+    color: #e8e0d0;
 }
  #content {
      font-family: 'Lusitana', serif;
