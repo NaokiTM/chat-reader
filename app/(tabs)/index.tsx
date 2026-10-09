@@ -59,8 +59,8 @@ export default function HomeScreen() {
 
   // animation values for the AI chat and translate panels sliding in from the left
   // AI and translation panel initially completely offscreen to the left.
-  const slideAnim = useRef(new Animated.Value(-PANEL_WIDTH)).current;
-  const translateSlideAnim = useRef(new Animated.Value(-PANEL_WIDTH)).current;
+  const [slideAnim] = useState(() => new Animated.Value(-PANEL_WIDTH));
+  const [translateSlideAnim] = useState(() => new Animated.Value(-PANEL_WIDTH));
 
   const [chatOpen, setChatOpen] = useState(false);
   const [translateOpen, setTranslateOpen] = useState(false);
@@ -92,10 +92,10 @@ export default function HomeScreen() {
 
   // visibility of nav bar and menu (invisible when scrolling down)
   const [navVisible, setNavVisible] = useState(true);
-  const navAnim = useRef(new Animated.Value(1)).current;
+  const [navAnim] = useState(() => new Animated.Value(1));
 
   // drives the bookmark bar's lift/rounding when the chapter bar fades out.
-  const bookmarkAnim = useRef(new Animated.Value(1)).current;
+  const [bookmarkAnim] = useState(() => new Animated.Value(1));
 
   // path to the reader.html file written to disk (null until it's been written)
   const [htmlUri, setHtmlUri] = useState<string | null>(null);
@@ -122,14 +122,14 @@ export default function HomeScreen() {
   const topInset = insets.top + 70;
 
   // slide the bookmark bar up/down in sync with nav visibility
-  // useEffect(() => {
-  //   Animated.timing(bookmarkBottom, {
-  //     toValue: navVisible ? 55 : 0,
-  //     duration: 220,
-  //     easing: Easing.out(Easing.cubic),
-  //     useNativeDriver: false, // 'bottom' is a layout prop, can't use native driver
-  //   }).start();
-  // }, [navVisible]);
+  useEffect(() => {
+    Animated.timing(bookmarkAnim, {
+      toValue: navVisible ? 1 : 0,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false, // bottom/right/borderRadius are layout props
+    }).start();
+  }, [navVisible]);
 
   // an easing effect is added when the nav goes invisible
   useEffect(() => {

@@ -32,7 +32,10 @@ export function buildReaderHtml(uri: string, topInset: number): string {
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
       <link href="https://fonts.googleapis.com/css2?family=Lusitana:wght@400;700&display=swap" rel="stylesheet">
-      <style> ${readerStyles} </style>
+      <style> 
+        :root { --top-inset: ${topInset}px; }
+        ${readerStyles} 
+      </style>
     </head>
     <body>
       <div id="content">Loading...</div>
