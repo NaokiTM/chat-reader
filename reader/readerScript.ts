@@ -1,4 +1,4 @@
-export function readerScript(uri: string): string {
+export function readerScript(uri: string, startChapter: number, startY: number): string {
     return String.raw`
 let chapters = [];
 let current = 0;
@@ -15,6 +15,19 @@ function setNavVisible(v) {
             visible: v
         }));
     }
+}
+
+// reports reader position once scrolling stops. used to save reading position in a book
+let positionTimer = null;
+function reportPositionSoon() {
+    clearTimeout(positionTimer);
+    positionTimer = setTimeout(function () {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: "position",
+            chapter: current,
+            y: window.scrollY
+        }));
+    }, 400);
 }
 
 
@@ -45,6 +58,7 @@ window.addEventListener("scroll", () => {
 
     // 
     lastY = y;
+    reportPositionSoon();
 });
 
 
@@ -83,6 +97,7 @@ function showChapter(index) {
         index: current,
         total: chapters.length
     }));
+    reportPositionSoon();
 }
 
 // Navigates to the specified chapter and scroll position
@@ -633,8 +648,10 @@ function loadBook() {
                     })
                 );
 
-                // Display the first chapter in the reader
-                showChapter(0);
+                // open at the saved position (0, 0 when there isn't one)
+                const startIndex = Math.min(${startChapter}, chapters.length - 1);
+                showChapter(startIndex);
+                gotoChapter(startIndex, ${startY});
             })
 
             // Handle any errors that occur during the loading and parsing of the book, displaying an error message in the content area

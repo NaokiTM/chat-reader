@@ -6,9 +6,13 @@ import { readerStyles } from "./readerStyles";
 export async function writeReaderHtmlFile(
   uri: string,  //receive the books uri
   topInset: number, //amount of space at the top of the reader
+
+  // the saved position in the book being loaded from uri
+  startChapter = 0,
+  startY = 0
 ): Promise<string> {
   // builds the actual reader webview
-  const html = buildReaderHtml(uri, topInset);
+  const html = buildReaderHtml(uri, topInset, startChapter, startY);
 
   //create directory to store reader in the cache. helps with organisation. if it doesnt exist then create one. 
   const dir = new Directory(Paths.cache, "reader");
@@ -22,7 +26,7 @@ export async function writeReaderHtmlFile(
   return file.uri; // file:///.../reader.html
 }
 
-export function buildReaderHtml(uri: string, topInset: number): string {
+export function buildReaderHtml(uri: string, topInset: number, startChapter: number, startY: number): string {
   return `
     <!DOCTYPE html>
     <html>
@@ -52,7 +56,7 @@ export function buildReaderHtml(uri: string, topInset: number): string {
       </div>
 
       <script>
-        ${readerScript(uri)}
+        ${readerScript(uri, startChapter, startY)}
       </script>
     </body>
     </html>

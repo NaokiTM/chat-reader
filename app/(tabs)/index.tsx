@@ -18,7 +18,10 @@ import {
   Text,
   TextInput,
   View,
+  Modal, 
+  ActivityIndicator
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import styles from "../../tabstyles/indexStyles";
@@ -29,6 +32,13 @@ type Message = {
   role: "user" | "ai";
   text: string;
 };
+
+type LastRead = { 
+  fileName: string; 
+  chapterIndex: number; 
+  scrollY: number 
+};
+const LAST_READ_KEY = "last_read";
 
 // type to indicate what information an active bookmark contains. clicking a bookmark scrolls to the place in the book that matches these.
 type BookmarkSlot = { chapterIndex: number; scrollY: number } | null;
@@ -50,6 +60,8 @@ const LANGUAGES = [
   "Dutch",
   "Turkish",
 ];
+
+
 
 // The home / reader screen.
 export default function HomeScreen() {
@@ -100,21 +112,36 @@ export default function HomeScreen() {
   // path to the reader.html file written to disk (null until it's been written)
   const [htmlUri, setHtmlUri] = useState<string | null>(null);
 
-  // uri is effectively the file path to the epub book that the reader sends to the webview.
-  // declared early since the effects below depend on it.
-  const { fileName } = useLocalSearchParams<{
-    fileName: string;
-    title: string;
-    type: string;
+
+  
+  const { fileName: paramFileName } = useLocalSearchParams<{
+    fileName: string; title: string; type: string;
   }>();
 
-  const uri = useMemo(
-    () =>
-      fileName
-        ? new File(new Directory(Paths.document, "books"), fileName).uri
-        : undefined,
-    [fileName],
-  );
+  // what was open when the app was last used (loaded once on launch)
+  const [restored, setRestored] = useState<LastRead | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const lastReadRef = useRef<LastRead | null>(null); // always the latest saved position
+
+  useEffect(() => {
+    AsyncStorage.getItem(LAST_READ_KEY).then((json) => {
+      if (json) {
+        const saved: LastRead = JSON.parse(json);
+        lastReadRef.current = saved;
+        setRestored(saved);
+      }
+      setLoaded(true);
+    });
+  }, []);
+
+  // a book picked in the Books tab wins; otherwise fall back to the last-read one
+  const fileName = paramFileName ?? restored?.fileName;
+
+  const uri = useMemo(() => {
+    if (!fileName) return undefined;
+    const f = new File(new Directory(Paths.document, "books"), fileName);
+    return f.exists ? f.uri : undefined; // missing file → "No book selected"
+  }, [fileName]);
 
   // extra top padding inside the WebView's own document so the chapter title
   // starts below the burger button initially. lives in the page's own
@@ -152,9 +179,11 @@ export default function HomeScreen() {
   // write the reader HTML out to an actual file on disk so the WebView loads it
   // with a real file:// origin (needed for it to be allowed to fetch() the epub).
   useEffect(() => {
-    if (!uri || typeof uri !== "string") return;
+    if (!uri || !loaded) return;
+    const saved = lastReadRef.current;
+    const start = saved && saved.fileName === fileName ? saved : null;
     let cancelled = false;
-    writeReaderHtmlFile(uri, topInset)
+    writeReaderHtmlFile(uri, topInset, start?.chapterIndex ?? 0, start?.scrollY ?? 0)
       .then((u) => {
         if (!cancelled) setHtmlUri(u);
       })
@@ -162,7 +191,48 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [uri, topInset]);
+  }, [uri, topInset, loaded, fileName]);
+
+
+
+
+
+  const [recap, setRecap] = useState<{ loading: boolean; text: string } | null>(null);
+  const recapDoneRef = useRef(false);
+
+  // recap feature, asks AI backend to summarise the previous chapter 
+  //either when we load in a new book, or our position in a chapter is restored
+  useEffect(() => {
+    // if recaps already been requested, or no save position or book isnt available, don't return recap. 
+    if (!bookReady || !restored || !uri || recapDoneRef.current) return;
+
+     // only recap when resuming, not for a book picked by hand
+    if (fileName !== restored.fileName) return;
+
+    // recap is now "sent". prevents duplicate requests in the above condition
+    recapDoneRef.current = true;
+    setRecap({ loading: true, text: "" });
+
+    //takes the last part of the book uri and calls it bookId. if undefined then fall back to uri
+    const bookId = uri.split("/").pop() ?? uri;
+
+    // send the request to AI and setRecap with the answer, handle bad responses otherwise
+    fetch(`${API_URL}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        bookId,
+        question: `Briefly summarise chapter ${restored.chapterIndex + 1} in 3-4 sentences so I can remember where I left off.`,
+        currentChapter: restored.chapterIndex,
+      }),
+    })
+      .then((r) => r.json())
+      .then((d) => setRecap({ loading: false, text: d.answer ?? "No summary available." }))
+      .catch(() => setRecap({ loading: false, text: "Couldn't load a summary." }));
+  }, [bookReady, restored, fileName, uri]);
+
+
+
 
   // OPENS the ai chat window. close interfering menus too.
   const openChat = () => {
@@ -463,6 +533,12 @@ export default function HomeScreen() {
 
             if (msg.type === "explainRequest") {
               handleExplainRequest(msg.text);
+            }
+
+            if (msg.type === "position" && fileName) {
+              const saved: LastRead = { fileName, chapterIndex: msg.chapter, scrollY: msg.y };
+              lastReadRef.current = saved;
+              AsyncStorage.setItem(LAST_READ_KEY, JSON.stringify(saved));
             }
 
             // WebView replied with its scrollY — complete the pending bookmark save
@@ -794,6 +870,33 @@ export default function HomeScreen() {
           />
         </Animated.View>
       )}
+
+      
+      <Modal visible={!!recap} transparent animationType="fade" onRequestClose={() => setRecap(null)}>
+        <View style={recapStyles.backdrop}>
+          <View style={recapStyles.card}>
+            <Text style={recapStyles.title}>Welcome back</Text>
+            {recap?.loading ? (
+              <ActivityIndicator color="#d20f39" />
+            ) : (
+              <Text style={recapStyles.body}>{recap?.text}</Text>
+            )}
+            <Pressable style={recapStyles.button} onPress={() => setRecap(null)}>
+              <Text style={recapStyles.buttonText}>Continue reading</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
+
+// move to styles later 
+const recapStyles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: 24 },
+  card: { backgroundColor: "#111", borderTopWidth: 3, borderBottomWidth: 3, borderColor: "#d20f39", padding: 22, gap: 14 },
+  title: { color: "#fff", fontSize: 20, fontWeight: "700" },
+  body: { color: "#fff", fontSize: 16, lineHeight: 23 },
+  button: { alignSelf: "center", paddingVertical: 8, paddingHorizontal: 16 },
+  buttonText: { color: "#d20f39", fontWeight: "700", fontSize: 15 },
+});
