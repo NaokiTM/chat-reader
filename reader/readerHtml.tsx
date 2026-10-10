@@ -11,19 +11,15 @@ export async function writeReaderHtmlFile(
   startChapter = 0,
   startY = 0
 ): Promise<string> {
-  // builds the actual reader webview
   const html = buildReaderHtml(uri, topInset, startChapter, startY);
 
-  //create directory to store reader in the cache. helps with organisation. if it doesnt exist then create one. 
   const dir = new Directory(Paths.cache, "reader");
   if (!dir.exists) dir.create();
+  dir.list().forEach((f) => { if (f instanceof File) f.delete(); });
 
-  //create a new reader HTML instance in dir each time this is run (once per session). if 
-  const file = new File(dir, "reader.html");
-  if (file.exists) file.delete();
-
+  const file = new File(dir, `reader-${Date.now()}.html`);
   file.write(html);
-  return file.uri; // file:///.../reader.html
+  return file.uri;
 }
 
 export function buildReaderHtml(uri: string, topInset: number, startChapter: number, startY: number): string {

@@ -111,10 +111,7 @@ export default function HomeScreen() {
   // drives the bookmark bar's lift/rounding when the chapter bar fades out.
   const [bookmarkAnim] = useState(() => new Animated.Value(1));
 
-  // path to the reader.html file written to disk (null until it's been written)
-  const [htmlUri, setHtmlUri] = useState<string | null>(null);
-
-
+  const [reader, setReader] = useState<{ fileName: string; uri: string } | null>(null);
   
   const { fileName: paramFileName } = useLocalSearchParams<{
     fileName: string; title: string; type: string;
@@ -139,10 +136,21 @@ export default function HomeScreen() {
   // a book picked in the Books tab wins; otherwise fall back to the last-read one
   const fileName = paramFileName ?? restored?.fileName;
 
+  // only use the html if it was built for the current book
+  const htmlUri = reader && reader.fileName === fileName ? reader.uri : null;
+
   const uri = useMemo(() => {
     if (!fileName) return undefined;
     const f = new File(new Directory(Paths.document, "books"), fileName);
     return f.exists ? f.uri : undefined; // missing file → "No book selected"
+  }, [fileName]);
+
+  useEffect(() => {
+    setBookReady(false);
+    setChatLog([]);
+    setBookmarks([null, null, null]);
+    setChapterInfo({ index: 0, total: 0 });
+    pendingSaveSlotRef.current = null;
   }, [fileName]);
 
   // extra top padding inside the WebView's own document so the chapter title
@@ -187,7 +195,7 @@ export default function HomeScreen() {
     let cancelled = false;
     writeReaderHtmlFile(uri, topInset, start?.chapterIndex ?? 0, start?.scrollY ?? 0)
       .then((u) => {
-        if (!cancelled) setHtmlUri(u);
+        if (!cancelled) setReader({ fileName: fileName!, uri: u });
       })
       .catch((e) => console.log("HTML write error:", e));
     return () => {
@@ -506,6 +514,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <WebView
+        key={htmlUri}
         ref={webViewRef}
         style={styles.webview}
         source={{ uri: htmlUri }}
