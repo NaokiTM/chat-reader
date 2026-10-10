@@ -65,6 +65,7 @@ const LANGUAGES = [
 
 
 
+
 // The home / reader screen.
 export default function HomeScreen() {
   // constants for the screen width and panel width for the AI chat (changes on open and close)
@@ -351,13 +352,31 @@ export default function HomeScreen() {
     }
   };
 
-  // on long press remove the bookmark
-  const handleBookmarkLongPress = (slot: number) => {
+  const removeBookmark = (slot: number) => {
+    if (pendingSaveSlotRef.current === slot) pendingSaveSlotRef.current = null;
     setBookmarks((prev) => {
       const next = [...prev];
       next[slot] = null;
       return next;
     });
+  };
+
+  // a single tap behaves as before (jump, or save if empty);
+  // a second tap on the same slot within 300ms removes it
+  const lastTapRef = useRef<{ slot: number; time: number } | null>(null);
+
+  const handleBookmarkTap = (slot: number) => {
+    const now = Date.now();
+    const last = lastTapRef.current;
+
+    if (last && last.slot === slot && now - last.time < 300) {
+      lastTapRef.current = null;
+      removeBookmark(slot);
+      return;
+    }
+
+    lastTapRef.current = { slot, time: now };
+    handleBookmarkPress(slot);
   };
 
   // ask the question to ai, and await the response. throw an error and stop loading if response doesnt load
@@ -756,24 +775,21 @@ export default function HomeScreen() {
           activeColor="#d20f39"
           inactiveColor="#d20f39"
           active={!!bookmarks[0]}
-          onPress={() => handleBookmarkPress(0)}
-          onLongPress={() => handleBookmarkLongPress(0)}
+          onPress={() => handleBookmarkTap(0)}
         />
         <Bookmark
           size={25}
           activeColor="#df8e1d"
           inactiveColor="#df8e1d"
           active={!!bookmarks[1]}
-          onPress={() => handleBookmarkPress(1)}
-          onLongPress={() => handleBookmarkLongPress(1)}
+          onPress={() => handleBookmarkTap(1)}
         />
         <Bookmark
           size={25}
           activeColor="#7287fd"
           inactiveColor="#7287fd"
           active={!!bookmarks[2]}
-          onPress={() => handleBookmarkPress(2)}
-          onLongPress={() => handleBookmarkLongPress(2)}
+          onPress={() => handleBookmarkTap(2)}
         />
       </Animated.View>
 
