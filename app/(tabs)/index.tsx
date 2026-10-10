@@ -1,3 +1,5 @@
+// THE READ TAB - THE DEFAULT TAB WHERE THE BOOK READER SHOWS. THE WEBVIEW HANDLES THE BOOK DISPLAY, REACT NATIVE HANDLES THE REST OF THE UI (MENUS ETC.). 
+
 import { Bookmark } from "@/components/ui/bookmark";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { API_URL } from "@/constants/api";
