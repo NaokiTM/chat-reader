@@ -27,6 +27,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import styles from "../../tabstyles/indexStyles";
+import { useTheme } from "@/context/ThemeContext";
 
 // message template to send to AI chat
 type Message = {
@@ -81,9 +82,8 @@ export default function HomeScreen() {
   const [chatLog, setChatLog] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const [darkMode, setDarkMode] = useState(false);
   const [translateLanguage, setTranslateLanguage] = useState("English");
+  const { isDark: darkMode} = useTheme();
 
   // true once the backend has finished indexing the book and is ready to answer questions
   const [bookReady, setBookReady] = useState(false);
@@ -310,14 +310,17 @@ export default function HomeScreen() {
   };
 
   // toggles dark mode across the reader webview by injecting javascript
-  const toggleDarkMode = () => {
-    const next = !darkMode;
-    setDarkMode(next);
+  const applyThemeToWebView = (dark: boolean) => {
     webViewRef.current?.injectJavaScript(`
-      window.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ action: "theme", dark: ${next} }) }));
+      window.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ action: "theme", dark: ${dark} }) }));
       true;
     `);
   };
+
+  // darkmode
+  useEffect(() => {
+    applyThemeToWebView(darkMode);
+  }, [darkMode]);
 
   // sends the search action to the webview to highlight matches in the current chapter.
   const runSearch = (query: string) => {
@@ -565,6 +568,7 @@ export default function HomeScreen() {
         allowFileAccessFromFileURLs
         allowingReadAccessToURL={uri} // iOS only: grants WKWebView read access to the epub
         mixedContentMode="always"
+        onLoadEnd={() => applyThemeToWebView(darkMode)}  //send darkmode message
         onMessage={(e) => {
           try {
             const msg = JSON.parse(e.nativeEvent.data);
@@ -686,19 +690,10 @@ export default function HomeScreen() {
                   <Text style={styles.dropdownText}>Search Chapter</Text>
                 </Pressable>
                 <Pressable
-                  style={styles.dropdownItem}
+                  style={[styles.dropdownItem, styles.dropdownItemLast]}
                   onPress={() => handleMenuSelect(openChat)}
                 >
                   <Text style={styles.dropdownText}>Ask AI</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.dropdownItem, styles.dropdownItemLast]}
-                  onPress={() => handleMenuSelect(toggleDarkMode)}
-                >
-                  <View style={styles.dropdownRow}>
-                    <Text style={styles.dropdownText}>Dark Mode</Text>
-                    <Text style={styles.dropdownText}>{darkMode ? "On" : "Off"}</Text>
-                  </View>
                 </Pressable>
               </View>
             )}
