@@ -3,7 +3,6 @@ import { StyleSheet } from "react-native";
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
   },
 
   profileRow: {
@@ -44,6 +43,21 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
+  toggleItem: {
+    padding: 16,
+    backgroundColor: "#f2f2f2",
+    borderRadius: 12,
+    marginBottom: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  
+  toggleStatus: {
+    fontSize: 13,
+    color: "#666",
+  },
+
   rowText: {
     fontSize: 16,
     color: "#111",
@@ -73,6 +87,19 @@ const styles = StyleSheet.create({
   fontName: {
     fontSize: 13,
     color: "#666",
+  },
+  
+  sliderHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+
+  fontSizeLabel: {
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "600",
   },
 });
 
