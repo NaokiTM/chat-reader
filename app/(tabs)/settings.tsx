@@ -14,34 +14,54 @@ export default function SettingsScreen() {
         paddingBottom: insets.bottom + 20,
       }}
     >
-      {/* PROFILE HEADER */}
-      <View style={styles.profileRow}>
-        <View style={styles.textContainer}>
-          <Text style={styles.name}>John Doe</Text>
-          <Text style={styles.email}>john.doe@email.com</Text>
-        </View>
-      </View>
-
-      {/* ACCOUNT */}
-      <Text style={styles.sectionTitle}>Account</Text>
-
-      <Pressable style={styles.item}>
-        <Text style={styles.rowText}>Profile</Text>
-      </Pressable>
-
-      <Pressable style={styles.item}>
-        <Text style={styles.rowText}>Change Password</Text>
-      </Pressable>
 
       {/* READING */}
-      <Text style={styles.sectionTitle}>Reading</Text>
+      <Text style={styles.sectionTitle}>Reader</Text>
+
+      <Pressable style={styles.item}>
+        <Text style={styles.rowText}>Hide bookmarks</Text>
+      </Pressable>
+
+      <Pressable style={styles.item}>
+        <Text style={styles.rowText}>Toggle chapter summary</Text>
+      </Pressable>
+      
+
+      {/* FONTS */}
+      <Text style={styles.sectionTitle}>Fonts</Text>
 
       <Pressable style={styles.item}>
         <Text style={styles.rowText}>Font Size</Text>
       </Pressable>
 
       <Pressable style={styles.item}>
-        <Text style={styles.rowText}>Theme</Text>
+        <Text style={styles.rowText}>Import font</Text>
+      </Pressable>
+
+      <Pressable style={styles.item}>
+        <Text style={styles.rowText}>Change font</Text>
+      </Pressable>
+
+      {/* THEME */}
+      <Text style={styles.sectionTitle}>Theme</Text>
+      <Pressable style={styles.item}>
+        <Text style={styles.rowText}>dark / light</Text>
+      </Pressable>
+
+      {/* AI FEATURES */}
+      <Text style={styles.sectionTitle}>AI & assistance</Text>
+      <Pressable style={styles.item}>
+        <Text style={styles.rowText}>Cache</Text>
+      </Pressable>
+
+      {/* App and storage */}
+      <Text style={styles.sectionTitle}>App & storage</Text>
+
+      <Pressable style={styles.item}>
+        <Text style={styles.rowText}>Cache</Text>
+      </Pressable>
+      <Pressable style={styles.item}>
+        <Text style={styles.rowText}>About</Text>
       </Pressable>
     </ScrollView>
   );
