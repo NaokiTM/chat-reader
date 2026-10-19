@@ -715,10 +715,6 @@ export default function HomeScreen() {
           pointerEvents="none"
           style={[barLine, { top: 0, backgroundColor: barLineColor }]}
         />
-        <View
-          pointerEvents="none"
-          style={[barLine, { bottom: 0, backgroundColor: barLineColor }]}
-        />
 
         <Pressable onPress={() => sendToWebView("prev")}>
           <Text style={styles.arrowText}>← Prev</Text>
@@ -755,7 +751,6 @@ export default function HomeScreen() {
           style={[StyleSheet.absoluteFill, { opacity: bookmarkAnim }]}
         >
           <View style={[barLine, { top: 0, backgroundColor: barLineColor }]} />
-          <View style={[barLine, { bottom: 0, backgroundColor: barLineColor }]} />
         </Animated.View>
 
         {/* floating: full rounded outline, fades in when floating */}
