@@ -140,7 +140,7 @@ export default function SettingsScreen() {
       <View
         style={[
           styles.item,
-          { backgroundColor: colors.surface, borderColor: colors.border },
+          { backgroundColor: colors.button, borderColor: colors.border },
         ]}
       >
         <View style={styles.sliderHeader}>
@@ -184,7 +184,7 @@ export default function SettingsScreen() {
       <View
         style={[
           styles.item,
-          { backgroundColor: colors.surface, borderColor: colors.border },
+          { backgroundColor: colors.button, borderColor: colors.border },
         ]}
       >
         <Text style={[styles.rowText, { color: colors.text }]}>
