@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import styles from '../../tabstyles/booksStyles';
 import * as LegacyFS from "expo-file-system/legacy";
+import { useTheme } from "@/context/ThemeContext";
 
 
 //type outside function to avoid re-render
@@ -24,6 +25,7 @@ const BOOKS_KEY = 'stored_books';
 
 // function to render book list screen
 export default function TabTwoScreen() {
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();  //areas that shouldnt overlap. used for padding in styles
   const [books, setBooks] = useState<Book[]>([]);  //the array of books being stored
   const [deleteMode, setDeleteMode] = useState(false);   //triggered when the trash can is pressed so users can delete multiple books
@@ -122,29 +124,36 @@ export default function TabTwoScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.container,
+        { paddingTop: insets.top, backgroundColor: colors.background },
+      ]}
+    >
       <FlatList
         data={books}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingBottom: 80 }}
         renderItem={({ item }) => (
-          <Pressable 
-            style={styles.card}   
-            onPress={() => !deleteMode && router.push({ 
-              pathname: "/", 
-              params: { fileName: item.fileName, title: item.title, type: item.type } 
-            })}
+          <Pressable
+            style={[styles.card, { backgroundColor: colors.button }]}
+            onPress={() =>
+              !deleteMode &&
+              router.push({
+                pathname: "/",
+                params: { fileName: item.fileName, title: item.title, type: item.type },
+              })
+            }
           >
             {deleteMode && (
-              <Pressable
-                style={styles.deleteX}
-                onPress={() => deleteBook(item.id)}
-              >
+              <Pressable style={styles.deleteX} onPress={() => deleteBook(item.id)}>
                 <Text style={styles.deleteXText}>✕</Text>
               </Pressable>
             )}
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.badge}>{item.type?.toUpperCase() ?? "EPUB"}</Text>
+            <Text style={[styles.title, { color: colors.text }]}>{item.title}</Text>
+            <Text style={[styles.badge, { color: colors.secondaryText }]}>
+              {item.type?.toUpperCase() ?? "EPUB"}
+            </Text>
           </Pressable>
         )}
       />
@@ -153,10 +162,14 @@ export default function TabTwoScreen() {
           style={[styles.squareButton, deleteMode && styles.squareButtonActive]}
           onPress={() => setDeleteMode((prev) => !prev)}
         >
-          <IconSymbol name="trash.fill" color="white" size={30} />
+          <IconSymbol
+            name="trash.fill"
+            color={deleteMode ? "white" : colors.text}
+            size={30}
+          />
         </Pressable>
         <Pressable style={styles.squareButton} onPress={importBook}>
-          <Text style={styles.buttonText}>+</Text>
+          <Text style={[styles.buttonText, { color: colors.text }]}>+</Text>
         </Pressable>
       </View>
     </View>
