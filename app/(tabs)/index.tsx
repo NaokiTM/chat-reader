@@ -1,29 +1,29 @@
-// THE READ TAB - THE DEFAULT TAB WHERE THE BOOK READER SHOWS. THE WEBVIEW HANDLES THE BOOK DISPLAY, REACT NATIVE HANDLES THE REST OF THE UI (MENUS ETC.). 
+// THE READ TAB - THE DEFAULT TAB WHERE THE BOOK READER SHOWS. THE WEBVIEW HANDLES THE BOOK DISPLAY, REACT NATIVE HANDLES THE REST OF THE UI (MENUS ETC.).
 
 import { Bookmark } from "@/components/ui/bookmark";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { API_URL } from "@/constants/api";
 import { writeReaderHtmlFile } from "@/reader/readerHtml";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BlurView } from "expo-blur";
-import { useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState, useMemo } from "react";
 import { Directory, File, Paths } from "expo-file-system";
+import { useLocalSearchParams } from "expo-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   Dimensions,
   Easing,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
-  Modal, 
-  ActivityIndicator
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import styles from "../../tabstyles/indexStyles";
@@ -35,10 +35,10 @@ type Message = {
   text: string;
 };
 
-type LastRead = { 
-  fileName: string; 
-  chapterIndex: number; 
-  scrollY: number 
+type LastRead = {
+  fileName: string;
+  chapterIndex: number;
+  scrollY: number;
 };
 const LAST_READ_KEY = "last_read";
 
@@ -62,9 +62,6 @@ const LANGUAGES = [
   "Dutch",
   "Turkish",
 ];
-
-
-
 
 // The home / reader screen.
 export default function HomeScreen() {
@@ -112,10 +109,15 @@ export default function HomeScreen() {
   // drives the bookmark bar's lift/rounding when the chapter bar fades out.
   const [bookmarkAnim] = useState(() => new Animated.Value(1));
 
-  const [reader, setReader] = useState<{ fileName: string; uri: string } | null>(null);
-  
+  const [reader, setReader] = useState<{
+    fileName: string;
+    uri: string;
+  } | null>(null);
+
   const { fileName: paramFileName } = useLocalSearchParams<{
-    fileName: string; title: string; type: string;
+    fileName: string;
+    title: string;
+    type: string;
   }>();
 
   // what was open when the app was last used (loaded once on launch)
@@ -194,7 +196,12 @@ export default function HomeScreen() {
     const saved = lastReadRef.current;
     const start = saved && saved.fileName === fileName ? saved : null;
     let cancelled = false;
-    writeReaderHtmlFile(uri, topInset, start?.chapterIndex ?? 0, start?.scrollY ?? 0)
+    writeReaderHtmlFile(
+      uri,
+      topInset,
+      start?.chapterIndex ?? 0,
+      start?.scrollY ?? 0,
+    )
       .then((u) => {
         if (!cancelled) setReader({ fileName: fileName!, uri: u });
       })
@@ -204,20 +211,18 @@ export default function HomeScreen() {
     };
   }, [uri, topInset, loaded, fileName]);
 
-
-
-
-
-  const [recap, setRecap] = useState<{ loading: boolean; text: string } | null>(null);
+  const [recap, setRecap] = useState<{ loading: boolean; text: string } | null>(
+    null,
+  );
   const recapDoneRef = useRef(false);
 
-  // recap feature, asks AI backend to summarise the previous chapter 
+  // recap feature, asks AI backend to summarise the previous chapter
   //either when we load in a new book, or our position in a chapter is restored
   useEffect(() => {
-    // if recaps already been requested, or no save position or book isnt available, don't return recap. 
+    // if recaps already been requested, or no save position or book isnt available, don't return recap.
     if (!bookReady || !restored || !uri || recapDoneRef.current) return;
 
-     // only recap when resuming, not for a book picked by hand
+    // only recap when resuming, not for a book picked by hand
     if (fileName !== restored.fileName) return;
 
     // recap is now "sent". prevents duplicate requests in the above condition
@@ -238,12 +243,13 @@ export default function HomeScreen() {
       }),
     })
       .then((r) => r.json())
-      .then((d) => setRecap({ loading: false, text: d.answer ?? "No summary available." }))
-      .catch(() => setRecap({ loading: false, text: "Couldn't load a summary." }));
+      .then((d) =>
+        setRecap({ loading: false, text: d.answer ?? "No summary available." }),
+      )
+      .catch(() =>
+        setRecap({ loading: false, text: "Couldn't load a summary." }),
+      );
   }, [bookReady, restored, fileName, uri]);
-
-
-
 
   // OPENS the ai chat window. close interfering menus too.
   const openChat = () => {
@@ -511,6 +517,17 @@ export default function HomeScreen() {
     );
   }
 
+  const LIGHT_BORDER = "#e8e0d0";
+
+  // dark mode only: 1px outline in the "light" colour
+  const outlineStyle = darkMode
+    ? { borderWidth: 1, borderColor: LIGHT_BORDER }
+    : null;
+
+  // dark mode only: top + bottom border for the bars
+  const barLineColor = darkMode ? LIGHT_BORDER : "transparent";
+  const barLine = { position: "absolute", left: 0, right: 0, height: 1 } as const;
+
   // fading opacity of the nav when the book is scrolled down
   const navStyle = {
     opacity: navAnim,
@@ -528,6 +545,11 @@ export default function HomeScreen() {
   const bookmarkRadius = bookmarkAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [18, 0],
+  });
+
+  const bookmarkRingOpacity = bookmarkAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0],
   });
 
   return (
@@ -566,7 +588,11 @@ export default function HomeScreen() {
             }
 
             if (msg.type === "position" && fileName) {
-              const saved: LastRead = { fileName, chapterIndex: msg.chapter, scrollY: msg.y };
+              const saved: LastRead = {
+                fileName,
+                chapterIndex: msg.chapter,
+                scrollY: msg.y,
+              };
               lastReadRef.current = saved;
               AsyncStorage.setItem(LAST_READ_KEY, JSON.stringify(saved));
             }
@@ -639,95 +665,39 @@ export default function HomeScreen() {
           // normal mode: burger button that opens the dropdown menu
           <>
             <Pressable
-              style={[
-                styles.burgerButton,
-                { backgroundColor: !darkMode ? "#111" : "#fff" },
-              ]}
+              style={[styles.burgerButton, outlineStyle]}
               onPress={() => setMenuOpen((v) => !v)}
             >
-              {/* <IconSymbol size={22} name="line.horizontal.3" color="white" /> */}
-              <Text
-                style={[
-                  styles.burgerText,
-                  { color: !darkMode ? "white" : "black" },
-                ]}
-              >
-                Menu
-              </Text>
+              <Text style={styles.burgerText}>Menu</Text>
             </Pressable>
 
             {menuOpen && (
-              <View
-                style={[
-                  styles.dropdown,
-                  { backgroundColor: !darkMode ? "#111" : "#fff" },
-                ]}
-              >
+              <View style={[styles.dropdown, outlineStyle]}>
                 <Pressable
                   style={styles.dropdownItem}
                   onPress={() => handleMenuSelect(openTranslate)}
                 >
-                  <Text
-                    style={{
-                      color: !darkMode ? "white" : "black",
-                      fontSize: 15,
-                      fontWeight: "600",
-                    }}
-                  >
-                    MagicTranslate
-                  </Text>
+                  <Text style={styles.dropdownText}>MagicTranslate</Text>
                 </Pressable>
                 <Pressable
                   style={styles.dropdownItem}
                   onPress={() => handleMenuSelect(() => setSearchOpen(true))}
                 >
-                  <Text
-                    style={{
-                      color: !darkMode ? "white" : "black",
-                      fontSize: 15,
-                      fontWeight: "600",
-                    }}
-                  >
-                    Search Chapter
-                  </Text>
+                  <Text style={styles.dropdownText}>Search Chapter</Text>
                 </Pressable>
                 <Pressable
                   style={styles.dropdownItem}
                   onPress={() => handleMenuSelect(openChat)}
                 >
-                  <Text
-                    style={{
-                      color: !darkMode ? "white" : "black",
-                      fontSize: 15,
-                      fontWeight: "600",
-                    }}
-                  >
-                    Ask AI
-                  </Text>
+                  <Text style={styles.dropdownText}>Ask AI</Text>
                 </Pressable>
                 <Pressable
                   style={[styles.dropdownItem, styles.dropdownItemLast]}
                   onPress={() => handleMenuSelect(toggleDarkMode)}
                 >
                   <View style={styles.dropdownRow}>
-                    <Text
-                      style={{
-                        color: !darkMode ? "white" : "black",
-                        fontSize: 15,
-                        fontWeight: "600",
-                      }}
-                    >
-                      Dark Mode
-                    </Text>
-                    <Text
-                      style={{
-                        color: !darkMode ? "white" : "black",
-                        fontSize: 15,
-                        fontWeight: "600",
-                      }}
-                    >
-                      {darkMode ? "On" : "Off"}
-                    </Text>
+                    <Text style={styles.dropdownText}>Dark Mode</Text>
+                    <Text style={styles.dropdownText}>{darkMode ? "On" : "Off"}</Text>
                   </View>
                 </Pressable>
               </View>
@@ -741,6 +711,15 @@ export default function HomeScreen() {
         style={[styles.bottomNav, navStyle]}
         pointerEvents={navVisible ? "auto" : "none"}
       >
+        <View
+          pointerEvents="none"
+          style={[barLine, { top: 0, backgroundColor: barLineColor }]}
+        />
+        <View
+          pointerEvents="none"
+          style={[barLine, { bottom: 0, backgroundColor: barLineColor }]}
+        />
+
         <Pressable onPress={() => sendToWebView("prev")}>
           <Text style={styles.arrowText}>← Prev</Text>
         </Pressable>
@@ -770,6 +749,29 @@ export default function HomeScreen() {
         ]}
         pointerEvents="auto"
       >
+        {/* docked: top + bottom lines, fade out when floating */}
+        <Animated.View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, { opacity: bookmarkAnim }]}
+        >
+          <View style={[barLine, { top: 0, backgroundColor: barLineColor }]} />
+          <View style={[barLine, { bottom: 0, backgroundColor: barLineColor }]} />
+        </Animated.View>
+
+        {/* floating: full rounded outline, fades in when floating */}
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              borderWidth: 1,
+              borderColor: barLineColor,
+              borderRadius: bookmarkRadius,
+              opacity: bookmarkRingOpacity,
+            },
+          ]}
+        />
+
         <Bookmark
           size={25}
           activeColor="#d20f39"
@@ -898,8 +900,12 @@ export default function HomeScreen() {
         </Animated.View>
       )}
 
-      
-      <Modal visible={!!recap} transparent animationType="fade" onRequestClose={() => setRecap(null)}>
+      <Modal
+        visible={!!recap}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRecap(null)}
+      >
         <View style={recapStyles.backdrop}>
           <View style={recapStyles.card}>
             <Text style={recapStyles.title}>Welcome back</Text>
@@ -908,7 +914,10 @@ export default function HomeScreen() {
             ) : (
               <Text style={recapStyles.body}>{recap?.text}</Text>
             )}
-            <Pressable style={recapStyles.button} onPress={() => setRecap(null)}>
+            <Pressable
+              style={recapStyles.button}
+              onPress={() => setRecap(null)}
+            >
               <Text style={recapStyles.buttonText}>Continue reading</Text>
             </Pressable>
           </View>
@@ -918,10 +927,22 @@ export default function HomeScreen() {
   );
 }
 
-// move to styles later 
+// move to styles later
 const recapStyles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: 24 },
-  card: { backgroundColor: "#111", borderTopWidth: 3, borderBottomWidth: 3, borderColor: "#d20f39", padding: 22, gap: 14 },
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    padding: 24,
+  },
+  card: {
+    backgroundColor: "#111",
+    borderTopWidth: 3,
+    borderBottomWidth: 3,
+    borderColor: "#d20f39",
+    padding: 22,
+    gap: 14,
+  },
   title: { color: "#fff", fontSize: 20, fontWeight: "700" },
   body: { color: "#fff", fontSize: 16, lineHeight: 23 },
   button: { alignSelf: "center", paddingVertical: 8, paddingHorizontal: 16 },

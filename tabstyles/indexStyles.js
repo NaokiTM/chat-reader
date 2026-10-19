@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#151515",
+    backgroundColor: "#121212",
     paddingHorizontal: 20,
     zIndex: 10,
     elevation: 10,
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    backgroundColor: "#111",
+    backgroundColor: "#121212",
     zIndex: 11, // above chapter bar so it's never clipped by it
     elevation: 11,
     overflow: "hidden", // keeps content clipped as borderRadius animates

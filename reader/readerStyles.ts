@@ -11,7 +11,7 @@ body {
      font-weight: 500;
 }
 body.dark {
-    background: #111;
+    background: #1C1B19;
     color: #e8e0d0;
 }
  #content {
