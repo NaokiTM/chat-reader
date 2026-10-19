@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
     color: "#666",
     marginTop: 2,
   },
-  
+
   sectionTitle: {
     fontSize: 14,
     fontWeight: "600",
@@ -47,6 +47,32 @@ const styles = StyleSheet.create({
   rowText: {
     fontSize: 16,
     color: "#111",
+  },
+
+  fontCard: {
+    width: 110,
+    padding: 12,
+    backgroundColor: "#f2f2f2",
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "transparent",
+    alignItems: "center",
+  },
+
+  selectedFontCard: {
+    borderColor: "#555",
+    backgroundColor: "#e5e5e5",
+  },
+
+  fontPreview: {
+    fontSize: 26,
+    color: "#111",
+    marginBottom: 10,
+  },
+
+  fontName: {
+    fontSize: 13,
+    color: "#666",
   },
 });
 
