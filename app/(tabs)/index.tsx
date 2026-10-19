@@ -238,7 +238,7 @@ export default function HomeScreen() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         bookId,
-        question: `Briefly summarise chapter ${restored.chapterIndex + 1} in 3-4 sentences so I can remember where I left off.`,
+        question: `Briefly summarise chapter ${restored.chapterIndex} in 3-4 sentences so I can remember where I left off.`,
         currentChapter: restored.chapterIndex,
       }),
     })
