@@ -5,6 +5,7 @@ import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Pressable } from "react-native";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -12,10 +13,20 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+        
+
+        // remove ripple effect on tab button press (not tested on ios)
+        tabBarButton: (props) => (
+          <Pressable
+            {...props}
+            android_ripple={null}
+            style={props.style}
+          />
+        ),
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
