@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
 
   // semi-transparent dark overlay on top of the blur for text contrast
   chatTint: {
-    backgroundColor: "rgba(10,10,10,0.35)",
+    backgroundColor: "rgba(10,10,10,0.9)",
   },
 
   chatContent: {
@@ -138,14 +138,35 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
 
+  chatHeaderCentered: {
+    alignItems: "flex-start",
+    justifyContent: "center",
+    paddingLeft: 20,    // distance from the left edge
+    paddingRight: 64,   // still clears the close button
+    paddingBottom: 12,
+  },
+
   chatTitle: {
     color: "white",
     fontSize: 18,
   },
 
+
+  chatTitleCentered: {
+    color: "white",
+    fontSize: 18,
+    textAlign: "left",
+  },
+
   closeText: {
     color: "white",
     fontSize: 20,
+  },
+
+  // absolute, so the title stays truly centred; top is set inline from the safe-area inset
+  chatCloseButton: {
+    position: "absolute",
+    right: 24,
   },
 
   bubble: {
@@ -168,20 +189,25 @@ const styles = StyleSheet.create({
 
   input: {
     flex: 1,
+    height: 44,
     backgroundColor: "rgba(51,51,51,0.6)",
     color: "white",
-    padding: 10,
-    borderRadius: 8,
+    paddingHorizontal: 18,
+    borderRadius: 22,
   },
 
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#d20f39",
     justifyContent: "center",
     alignItems: "center",
     marginLeft: 8,
+  },
+
+  sendButtonDisabled: {
+    opacity: 0.4,
   },
 
   sendText: { color: "white", fontSize: 20 },

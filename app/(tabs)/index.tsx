@@ -587,6 +587,9 @@ export default function HomeScreen() {
     opacity: navAnim,
   };
 
+  // book title shown in the AI chat panel
+  const bookTitle = fileName?.replace(/\.(epub|pdf|docx)$/i, "") ?? "the book";
+
   // bookmark bar lifts off the corner and fully rounds when the chapter bar fades.
   const bookmarkBottomOffset = bookmarkAnim.interpolate({
     inputRange: [0, 1],
@@ -871,9 +874,14 @@ export default function HomeScreen() {
           <View style={[StyleSheet.absoluteFill, styles.chatTint]} />
 
           <View style={styles.chatContent}>
-            <View style={[styles.chatHeader, { paddingTop: insets.top + 12 }]}>
-              <Text style={styles.chatTitle}>Ask about the book</Text>
-              <Pressable onPress={closeChat}>
+            <View style={[styles.chatHeaderCentered, { paddingTop: insets.top + 12 }]}>
+              <Text style={styles.chatTitleCentered} numberOfLines={2}>
+                Ask about {bookTitle}
+              </Text>
+              <Pressable
+                style={[styles.chatCloseButton, { top: insets.top + 20 }]}
+                onPress={closeChat}
+              >
                 <Text style={styles.closeText}>✕</Text>
               </Pressable>
             </View>
@@ -894,10 +902,6 @@ export default function HomeScreen() {
             />
 
             {loading && <Text style={styles.loadingText}>Thinking...</Text>}
-            {!bookReady && (
-              <Text style={styles.loadingText}>Indexing book...</Text>
-            )}
-
             {/* KeyboardAvoidingView pushes the input up when the keyboard appears */}
             <KeyboardAvoidingView
               behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -907,11 +911,20 @@ export default function HomeScreen() {
                   style={styles.input}
                   value={input}
                   onChangeText={setInput}
-                  placeholder="Ask something..."
+                  editable={bookReady}
+                  placeholder={
+                    bookReady
+                      ? "Ask something..."
+                      : "Book is still indexing, you can't ask yet"
+                  }
                   placeholderTextColor="#aaa"
                   onSubmitEditing={askQuestion}
                 />
-                <Pressable style={styles.sendButton} onPress={askQuestion}>
+                <Pressable
+                  style={[styles.sendButton, !bookReady && styles.sendButtonDisabled]}
+                  onPress={askQuestion}
+                  disabled={!bookReady}
+                >
                   <Text style={styles.sendText}>→</Text>
                 </Pressable>
               </View>
