@@ -565,14 +565,16 @@ export default function HomeScreen() {
   }
 
   const LIGHT_BORDER = "#e8e0d0";
+  const RED = "#d20f39";
 
-  // dark mode only: 1px outline in the "light" colour
+  // dark mode only: 1px outline in the "light" colour (menu button + dropdown)
   const outlineStyle = darkMode
     ? { borderWidth: 1, borderColor: LIGHT_BORDER }
     : null;
 
-  // dark mode only: top + bottom border for the bars
-  const barLineColor = darkMode ? LIGHT_BORDER : "transparent";
+  // the floating bookmark ring stays light in dark mode, none in light mode
+  const ringColor = darkMode ? LIGHT_BORDER : "transparent";
+
   const barLine = {
     position: "absolute",
     left: 0,
@@ -761,7 +763,7 @@ export default function HomeScreen() {
       >
         <View
           pointerEvents="none"
-          style={[barLine, { top: 0, backgroundColor: barLineColor }]}
+          style={[barLine, { top: 0, backgroundColor: RED}]}
         />
 
         <Pressable onPress={() => sendToWebView("prev")}>
@@ -798,7 +800,7 @@ export default function HomeScreen() {
           pointerEvents="none"
           style={[StyleSheet.absoluteFill, { opacity: bookmarkAnim }]}
         >
-          <View style={[barLine, { top: 0, backgroundColor: barLineColor }]} />
+          <View style={[barLine, { top: 0, backgroundColor: RED }]} />
         </Animated.View>
 
         {/* floating: full rounded outline, fades in when floating */}
@@ -808,7 +810,7 @@ export default function HomeScreen() {
             StyleSheet.absoluteFill,
             {
               borderWidth: 1,
-              borderColor: barLineColor,
+              borderColor: ringColor,
               borderRadius: bookmarkRadius,
               opacity: bookmarkRingOpacity,
             },
@@ -837,6 +839,17 @@ export default function HomeScreen() {
           onPress={() => handleBookmarkTap(2)}
         />
       </Animated.View>
+
+      {/* TEMPORARY INDEXING BAR: sits above both bars until the backend has indexed the book */}
+      {!bookReady && (
+        <Animated.View           
+          style={[styles.indexingBar, navStyle,]}
+          pointerEvents="none"
+        >
+          <Text style={styles.barText}>Indexing book...</Text>
+        </Animated.View>
+
+      )}
 
       {/* AI CHAT PANEL — transparent + blurred, slides in from the left */}
       {chatOpen && (

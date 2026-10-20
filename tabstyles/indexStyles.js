@@ -217,6 +217,27 @@ const styles = StyleSheet.create({
     elevation: 11,
     overflow: "hidden", // keeps content clipped as borderRadius animates
   },
+
+  indexingBar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 56, // directly above the chapter and bookmark bars
+    height: 40,
+    backgroundColor: "#000",
+    borderTopWidth: 1,
+    borderTopColor: "#d20f39",
+    zIndex: 12, // above the bars (10 and 11), below the chat and translate panels (20)
+    elevation: 12,
+    justifyContent: "center",
+  },
+  barText: {
+    fontSize: 16,
+    color: "white", 
+    padding: 8, 
+    textAlign: "center", 
+    fontWeight: "semibold"
+  },
   dropdownRow: {
     flexDirection: "row",
     justifyContent: "space-between",
