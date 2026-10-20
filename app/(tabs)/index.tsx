@@ -3,6 +3,7 @@
 import { Bookmark } from "@/components/ui/bookmark";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { API_URL } from "@/constants/api";
+import { useTheme } from "@/context/ThemeContext";
 import { writeReaderHtmlFile } from "@/reader/readerHtml";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BlurView } from "expo-blur";
@@ -27,7 +28,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import styles from "../../tabstyles/indexStyles";
-import { useTheme } from "@/context/ThemeContext";
 
 // message template to send to AI chat
 type Message = {
@@ -71,7 +71,6 @@ const FONT_STACKS: Record<string, string> = {
   "sans-serif": "sans-serif",
   monospace: "monospace",
 };
-
 
 // The home / reader screen.
 export default function HomeScreen() {
@@ -522,7 +521,10 @@ export default function HomeScreen() {
       css = `'${custom.family}', serif`;
       if (!loadedFacesRef.current.has(custom.family)) {
         try {
-          const file = new File(new Directory(Paths.document, "fonts"), custom.fileName);
+          const file = new File(
+            new Directory(Paths.document, "fonts"),
+            custom.fileName,
+          );
           const b64 = await file.base64();
           face = `@font-face{font-family:'${custom.family}';src:url(data:application/octet-stream;base64,${b64}) format('${custom.format}');}`;
           loadedFacesRef.current.add(custom.family);
@@ -571,7 +573,12 @@ export default function HomeScreen() {
 
   // dark mode only: top + bottom border for the bars
   const barLineColor = darkMode ? LIGHT_BORDER : "transparent";
-  const barLine = { position: "absolute", left: 0, right: 0, height: 1 } as const;
+  const barLine = {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 1,
+  } as const;
 
   // fading opacity of the nav when the book is scrolled down
   const navStyle = {
