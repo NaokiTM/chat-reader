@@ -101,6 +101,45 @@ const styles = StyleSheet.create({
     color: "#666",
     fontWeight: "600",
   },
+
+  // About / How to use panel
+  panel: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 20,
+    elevation: 20,
+    backgroundColor: "#121212", // solid, no transparency
+  },
+  panelHeader: {
+    paddingLeft: 20,
+    paddingRight: 64,
+    paddingBottom: 12,
+  },
+  panelTitle: {
+    color: "white",
+    fontSize: 18,
+  },
+  panelClose: {
+    position: "absolute",
+    right: 24,
+  },
+  panelCloseText: {
+    color: "white",
+    fontSize: 20,
+  },
+  panelHeading: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  panelBody: {
+    color: "#ddd",
+    fontSize: 15,
+    lineHeight: 22,
+  },
 });
 
 export default styles;
