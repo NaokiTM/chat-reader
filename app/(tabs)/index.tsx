@@ -931,7 +931,10 @@ export default function HomeScreen() {
             renderItem={({ item }) => (
               <Pressable
                 style={styles.languageRow}
-                onPress={() => setTranslateLanguage(item)}
+                onPress={() => {
+                  setTranslateLanguage(item);
+                  closeTranslate();
+                }}
               >
                 <Text style={styles.languageText}>{item}</Text>
                 {translateLanguage === item && (
