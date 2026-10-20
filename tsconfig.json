@@ -13,5 +13,5 @@
     "expo-env.d.ts",
     "reader/readerScript.ts",
     "reader/readerScriptColor.ts"
-  ]
+, "context/FontContext.js"  ]
 }

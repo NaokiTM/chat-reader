@@ -5,8 +5,8 @@ import styles from "../../tabstyles/settingsStyles";
 import * as DocumentPicker from "expo-document-picker";
 import Slider from "@react-native-community/slider";
 import { useState, useRef, useEffect } from "react";
-import { ThemeProvider } from "@/context/ThemeContext";
 import { useTheme } from "@/context/ThemeContext";
+import { Directory, File, Paths } from "expo-file-system";
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -19,32 +19,54 @@ export default function SettingsScreen() {
     { name: "Mono", family: "monospace" },
   ];
 
-  const [selectedFont, setSelectedFont] = useState("System");
-  const [fontSize, setFontSize] = useState(16);
   const [bookmarkBarEnabled, setBookmarkBarEnabled] = useState(true);
   const [chapterSummaryEnabled, setChapterSummaryEnabled] = useState(true);
   // const [isDarkMode, setIsDarkMode] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const { theme, isDark, colors, toggleTheme } = useTheme();
+
+
+  const {
+    theme, isDark, colors, toggleTheme,
+    fontFamily: selectedFont, setFontFamily: setSelectedFont,
+    fontSize, setFontSize,
+    customFonts, addCustomFont,
+  } = useTheme();
 
   // allows the user to import their own fonts into the app to use
   async function pickFont() {
+    // font MIME types are unreliable on Android, so accept anything and check the extension
     const result = await DocumentPicker.getDocumentAsync({
-      type: ["font/ttf", "font/otf", "font/woff", "font/woff2"],
+      type: "*/*",
       copyToCacheDirectory: true,
     });
+    if (result.canceled) return;
 
-    // if they cancel file selection
-    if (result.canceled) {
-      console.log("User cancelled");
-      return;
-    }
+    const asset = result.assets[0];
+    const ext = asset.name.split(".").pop()?.toLowerCase() ?? "";
+    const formats = { ttf: "truetype", otf: "opentype", woff: "woff", woff2: "woff2" } as const;
+    const format = formats[ext as keyof typeof formats];
+    if (!format) return; // not a font file
 
-    const file = result.assets[0];
+    const dir = new Directory(Paths.document, "fonts");
+    if (!dir.exists) dir.create();
 
-    console.log("Name:", file.name);
-    console.log("URI:", file.uri);
+    const id = Date.now().toString();
+    const dest = new File(dir, `${id}.${ext}`);
+    new File(asset.uri).copy(dest);
+
+    addCustomFont({
+      id,
+      name: asset.name.replace(/\.\w+$/, ""),
+      family: `custom-${id}`,
+      fileName: dest.name,
+      format,
+    });
   }
+
+  const allFonts = [
+    ...fonts,
+    ...customFonts.map((f) => ({ name: f.name, family: f.family })),
+  ];
 
   // theme
   useEffect(() => {
@@ -66,7 +88,6 @@ export default function SettingsScreen() {
   });
 
   return (
-    <ThemeProvider>
       <Animated.ScrollView
         style={[styles.container, { backgroundColor }]}
         contentContainerStyle={{
@@ -186,7 +207,7 @@ export default function SettingsScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ gap: 12, paddingVertical: 12 }}
           >
-            {fonts.map((font) => {
+            {allFonts.map((font) => {
               const selected = selectedFont === font.family;
 
               // selected = inverted (stands out), unselected = matches the other buttons
@@ -289,6 +310,5 @@ export default function SettingsScreen() {
           <Text style={[styles.rowText, { color: colors.text }]}>About</Text>
         </Pressable>
       </Animated.ScrollView>
-    </ThemeProvider>
   );
 }

@@ -64,6 +64,15 @@ const LANGUAGES = [
   "Turkish",
 ];
 
+// settings font -> CSS font-family for the webview
+const FONT_STACKS: Record<string, string> = {
+  System: "-apple-system, system-ui, sans-serif", //the readers current default
+  serif: "serif",
+  "sans-serif": "sans-serif",
+  monospace: "monospace",
+};
+
+
 // The home / reader screen.
 export default function HomeScreen() {
   // constants for the screen width and panel width for the AI chat (changes on open and close)
@@ -83,7 +92,7 @@ export default function HomeScreen() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [translateLanguage, setTranslateLanguage] = useState("English");
-  const { isDark: darkMode} = useTheme();
+  const { isDark: darkMode, fontFamily, fontSize, customFonts } = useTheme();
 
   // true once the backend has finished indexing the book and is ready to answer questions
   const [bookReady, setBookReady] = useState(false);
@@ -500,6 +509,39 @@ export default function HomeScreen() {
     }
   };
 
+  // custom fonts already injected into the current page (cleared on every WebView load)
+  const loadedFacesRef = useRef(new Set<string>());
+
+  const applyFontToWebView = async (family: string, size: number) => {
+    const custom = customFonts.find((f) => f.family === family);
+
+    let face: string | null = null;
+    let css = FONT_STACKS[family] ?? family;
+
+    if (custom) {
+      css = `'${custom.family}', serif`;
+      if (!loadedFacesRef.current.has(custom.family)) {
+        try {
+          const file = new File(new Directory(Paths.document, "fonts"), custom.fileName);
+          const b64 = await file.base64();
+          face = `@font-face{font-family:'${custom.family}';src:url(data:application/octet-stream;base64,${b64}) format('${custom.format}');}`;
+          loadedFacesRef.current.add(custom.family);
+        } catch {
+          css = FONT_STACKS.System; // file missing, fall back
+        }
+      }
+    }
+
+    webViewRef.current?.injectJavaScript(`
+      window.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ action: "font", family: ${JSON.stringify(css)}, size: ${size}, face: ${JSON.stringify(face)} }) }));
+      true;
+    `);
+  };
+
+  useEffect(() => {
+    applyFontToWebView(fontFamily, fontSize);
+  }, [fontFamily, fontSize, customFonts]);
+
   // if the uri of a book isn't loaded then show placeholder text
   if (!uri) {
     return (
@@ -568,7 +610,11 @@ export default function HomeScreen() {
         allowFileAccessFromFileURLs
         allowingReadAccessToURL={uri} // iOS only: grants WKWebView read access to the epub
         mixedContentMode="always"
-        onLoadEnd={() => applyThemeToWebView(darkMode)}  //send darkmode message
+        onLoadEnd={() => {
+          loadedFacesRef.current.clear(); // a fresh page has no fonts injected
+          applyThemeToWebView(darkMode);
+          applyFontToWebView(fontFamily, fontSize);
+        }}
         onMessage={(e) => {
           try {
             const msg = JSON.parse(e.nativeEvent.data);

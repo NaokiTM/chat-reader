@@ -1,21 +1,24 @@
 // used formatter to format, hence different formatting style
 export const readerStyles = ` 
 body {
-     margin: 0;
-     padding: 24px;
-     padding-top: var(--top-inset);
-     background: #fef0d8;
-     font-size: 22px;
-     line-height: 1.4;
-     color: #000;
-     font-weight: 500;
+    margin: 0;
+    padding: 24px;
+    padding-top: var(--top-inset);
+    background: #fef0d8;
+    font-size: 22px;
+    line-height: 1.4;
+    color: #000;
+    font-weight: 500;
+    font-family: var(--reader-font, 'Lusitana', serif);
+    font-size: var(--reader-size, 18px);
 }
+
 body.dark {
     background: #1C1B19;
     color: #e8e0d0;
 }
- #content {
-     font-family: 'Lusitana', serif;
+#content {
+    font-family: var(--reader-font, 'Lusitana', serif);
 }
  ::selection {
      background: #d20f39;

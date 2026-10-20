@@ -538,6 +538,18 @@ window.addEventListener(
         if (msg.action === "theme") {
             document.body.classList.toggle("dark", msg.dark);
         }
+
+
+        // if a font change action is requested
+        if (msg.action === "font") {
+            if (msg.face) {
+                const s = document.createElement("style");
+                s.textContent = msg.face;
+                document.head.appendChild(s);
+            }
+            document.documentElement.style.setProperty("--reader-font", msg.family);
+            document.documentElement.style.setProperty("--reader-size", msg.size + "px");
+        }
     }
 );
 
