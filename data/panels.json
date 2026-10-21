@@ -1,0 +1,55 @@
+{
+  "about": {
+    "title": "About",
+    "sections": [
+      {
+        "body": "AI Chat Reader is an ebook reader with an AI assistant built in. Open a book, read it chapter by chapter, and get help without leaving the page."
+      },
+      {
+        "heading": "What it can do",
+        "body": "Ask questions about the book you're reading, translate a word in context, get a line explained in plain language, and get a short recap of your last chapter when you come back to a book."
+      },
+      {
+        "heading": "Made for reading",
+        "body": "Search within a chapter, drop up to three colour-coded bookmarks, and switch between light and dark themes. You can also change the font and font size, or import your own fonts."
+      },
+      {
+        "heading": "Good to know",
+        "body": "Only EPUB files can be read at the moment. AI features work once a book has finished indexing."
+      }
+    ]
+  },
+  "howto": {
+    "title": "How to use",
+    "sections": [
+      {
+        "heading": "1. Add a book",
+        "body": "Go to the Books tab and tap +. Pick one or more EPUB files. Tap a book to open it in the reader."
+      },
+      {
+        "heading": "2. Read",
+        "body": "Scroll to read. The bars hide as you scroll down and return when you scroll up. Use Prev and Next at the bottom to change chapter. The app remembers where you stopped."
+      },
+      {
+        "heading": "3. Ask AI",
+        "body": "Open Menu, then Ask AI. Type a question about the book. You can ask once the Indexing book bar at the bottom disappears."
+      },
+      {
+        "heading": "4. Translate or explain",
+        "body": "Choose a language under Menu, then MagicTranslate. Then select text in the book and tap Translate to replace it with the translation, or Explain this line for a simple explanation."
+      },
+      {
+        "heading": "5. Search a chapter",
+        "body": "Open Menu, then Search Chapter. Matches in the current chapter are highlighted."
+      },
+      {
+        "heading": "6. Bookmarks",
+        "body": "Tap an empty bookmark to save your spot. Tap a saved one to jump back. Double-tap it to clear it. Bookmarks reset when you reopen a book."
+      },
+      {
+        "heading": "7. Make it yours",
+        "body": "In Settings, switch theme, pick a font, change the font size, or import your own font file."
+      }
+    ]
+  }
+}
