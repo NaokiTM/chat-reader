@@ -9,6 +9,8 @@ import { useState, useRef, useEffect } from "react";
 import { useTheme } from "@/context/ThemeContext";
 import { Directory, File, Paths } from "expo-file-system";
 import panelsData from "@/data/panels.json";
+import { useFonts } from "expo-font";
+import { Lusitana_400Regular } from "@expo-google-fonts/lusitana";
 
 type PanelKind = "about" | "howto";
 
@@ -23,11 +25,13 @@ type Panel = {
 const PANELS: Record<PanelKind, Panel> = panelsData;
 
 export default function SettingsScreen() {
+
+  useFonts({ Lusitana: Lusitana_400Regular });
   const insets = useSafeAreaInsets();
 
   // placeholder fonts to go into the font selector
   const fonts = [
-    { name: "Default", family: "System" },
+    { name: "Lusitana", family: "Lusitana" },
     { name: "Serif", family: "serif" },
     { name: "Sans", family: "sans-serif" },
     { name: "Mono", family: "monospace" },
@@ -41,6 +45,8 @@ export default function SettingsScreen() {
   const PANEL_WIDTH = Dimensions.get("window").width;
   const [slideAnim] = useState(() => new Animated.Value(-PANEL_WIDTH));
   const [panel, setPanel] = useState<PanelKind | null>(null);
+
+  // const [fontFamily, setFontFamilyState] = useState("Lusitana");
 
   const openPanel = (kind: PanelKind) => {
     setPanel(kind);

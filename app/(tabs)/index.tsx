@@ -16,6 +16,7 @@ import {
   Dimensions,
   Easing,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -66,7 +67,7 @@ const LANGUAGES = [
 
 // settings font -> CSS font-family for the webview
 const FONT_STACKS: Record<string, string> = {
-  System: "-apple-system, system-ui, sans-serif", //the readers current default
+  Lusitana: "'Lusitana', serif",
   serif: "serif",
   "sans-serif": "sans-serif",
   monospace: "monospace",
@@ -345,6 +346,11 @@ export default function HomeScreen() {
     setSearchQuery("");
   };
 
+  // close keyboard when keyword search bar is closed
+  useEffect(() => {
+    if (!searchOpen) Keyboard.dismiss();
+  }, [searchOpen]);
+
   // save the bookmark slot, requesting the WebView's current scrollY via postMessage.
   // the response is handled in onMessage below, keyed on pendingSaveSlotRef.
   const saveBookmark = (slot: number) => {
@@ -575,6 +581,9 @@ export default function HomeScreen() {
   // the floating bookmark ring stays light in dark mode, none in light mode
   const ringColor = darkMode ? LIGHT_BORDER : "transparent";
 
+  // for the top border on nav and bookmark bars
+  const barColor = bookReady ? "white" : RED;
+
   const barLine = {
     position: "absolute",
     left: 0,
@@ -766,7 +775,7 @@ export default function HomeScreen() {
       >
         <View
           pointerEvents="none"
-          style={[barLine, { top: 0, backgroundColor: RED}]}
+          style={[barLine, { top: 0, backgroundColor: barColor }]}
         />
 
         <Pressable onPress={() => sendToWebView("prev")}>
@@ -803,7 +812,7 @@ export default function HomeScreen() {
           pointerEvents="none"
           style={[StyleSheet.absoluteFill, { opacity: bookmarkAnim }]}
         >
-          <View style={[barLine, { top: 0, backgroundColor: RED }]} />
+          <View style={[barLine, { top: 0, backgroundColor: barColor }]} />
         </Animated.View>
 
         {/* floating: full rounded outline, fades in when floating */}
@@ -845,13 +854,12 @@ export default function HomeScreen() {
 
       {/* TEMPORARY INDEXING BAR: sits above both bars until the backend has indexed the book */}
       {!bookReady && (
-        <Animated.View           
-          style={[styles.indexingBar, navStyle,]}
+        <Animated.View
+          style={[styles.indexingBar, navStyle]}
           pointerEvents="none"
         >
           <Text style={styles.barText}>Indexing book...</Text>
         </Animated.View>
-
       )}
 
       {/* AI CHAT PANEL — transparent + blurred, slides in from the left */}
@@ -874,7 +882,12 @@ export default function HomeScreen() {
           <View style={[StyleSheet.absoluteFill, styles.chatTint]} />
 
           <View style={styles.chatContent}>
-            <View style={[styles.chatHeaderCentered, { paddingTop: insets.top + 12 }]}>
+            <View
+              style={[
+                styles.chatHeaderCentered,
+                { paddingTop: insets.top + 12 },
+              ]}
+            >
               <Text style={styles.chatTitleCentered} numberOfLines={2}>
                 Ask about {bookTitle}
               </Text>
@@ -921,7 +934,10 @@ export default function HomeScreen() {
                   onSubmitEditing={askQuestion}
                 />
                 <Pressable
-                  style={[styles.sendButton, !bookReady && styles.sendButtonDisabled]}
+                  style={[
+                    styles.sendButton,
+                    !bookReady && styles.sendButtonDisabled,
+                  ]}
                   onPress={askQuestion}
                   disabled={!bookReady}
                 >
@@ -975,6 +991,7 @@ export default function HomeScreen() {
       <Modal
         visible={!!recap}
         transparent
+        statusBarTranslucent //allows for top inset to be covered by tint
         animationType="fade"
         onRequestClose={() => setRecap(null)}
       >
