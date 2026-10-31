@@ -108,6 +108,7 @@ The app expects these endpoints (all `POST`, JSON):
 - [ ] Delete imported fonts
 - [ ] add cache settings
 - [ ] bookmark bar and chapter summary toggle in settings
+- [ ] add AI and LLM settings section
 
 ## Known limitations
 
