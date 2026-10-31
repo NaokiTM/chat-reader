@@ -106,6 +106,8 @@ The app expects these endpoints (all `POST`, JSON):
 - [ ] PDF and DOCX support (they can be imported, but only EPUB renders)
 - [ ] Persist bookmarks between sessions
 - [ ] Delete imported fonts
+- [ ] add cache settings
+- [ ] bookmark bar and chapter summary toggle in settings
 
 ## Known limitations
 
