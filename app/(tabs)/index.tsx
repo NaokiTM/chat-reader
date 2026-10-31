@@ -47,24 +47,6 @@ const LAST_READ_KEY = "last_read";
 // type to indicate what information an active bookmark contains. clicking a bookmark scrolls to the place in the book that matches these.
 type BookmarkSlot = { chapterIndex: number; scrollY: number } | null;
 
-// template languages for MagicTranslate
-const LANGUAGES = [
-  "English",
-  "Spanish",
-  "French",
-  "German",
-  "Italian",
-  "Portuguese",
-  "Mandarin Chinese",
-  "Japanese",
-  "Korean",
-  "Arabic",
-  "Hindi",
-  "Russian",
-  "Dutch",
-  "Turkish",
-];
-
 // settings font -> CSS font-family for the webview
 const FONT_STACKS: Record<string, string> = {
   Lusitana: "'Lusitana', serif",
@@ -82,16 +64,14 @@ export default function HomeScreen() {
   // animation values for the AI chat and translate panels sliding in from the left
   // AI and translation panel initially completely offscreen to the left.
   const [slideAnim] = useState(() => new Animated.Value(-PANEL_WIDTH));
-  const [translateSlideAnim] = useState(() => new Animated.Value(-PANEL_WIDTH));
 
   const [chatOpen, setChatOpen] = useState(false);
-  const [translateOpen, setTranslateOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const [chapterInfo, setChapterInfo] = useState({ index: 0, total: 0 });
   const [chatLog, setChatLog] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [translateLanguage, setTranslateLanguage] = useState("English");
+  const [translateLanguage, setTranslateLanguage] = useState("");
   const { isDark: darkMode, fontFamily, fontSize, customFonts } = useTheme();
 
   // true once the backend has finished indexing the book and is ready to answer questions
@@ -262,7 +242,6 @@ export default function HomeScreen() {
 
   // OPENS the ai chat window. close interfering menus too.
   const openChat = () => {
-    if (translateOpen) closeTranslate();
     setChatOpen(true);
     Animated.timing(slideAnim, {
       toValue: 0,
@@ -280,28 +259,6 @@ export default function HomeScreen() {
       easing: Easing.in(Easing.cubic),
       useNativeDriver: true,
     }).start(() => setChatOpen(false));
-  };
-
-  // OPENS the translate panel. close interfering menus too.
-  const openTranslate = () => {
-    if (chatOpen) closeChat();
-    setTranslateOpen(true);
-    Animated.timing(translateSlideAnim, {
-      toValue: 0,
-      duration: 250,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  };
-
-  // CLOSES the translate panel.
-  const closeTranslate = () => {
-    Animated.timing(translateSlideAnim, {
-      toValue: -PANEL_WIDTH,
-      duration: 250,
-      easing: Easing.in(Easing.cubic),
-      useNativeDriver: true,
-    }).start(() => setTranslateOpen(false));
   };
 
   // helper function to pass a menu in and open or close it. closes the menu after the action is performed.
@@ -454,6 +411,8 @@ export default function HomeScreen() {
     }
   };
 
+  const [translatePrompt, setTranslatePrompt] = useState<{ word: string; context: string } | null>(null);
+
   const handleTranslateRequest = async (word: string, context: string) => {
     try {
       // send request to LLM API with the book, context, chapter,
@@ -483,6 +442,13 @@ export default function HomeScreen() {
         `window.__translationFailed(); true;`,
       );
     }
+  };
+
+  const submitTranslate = () => {
+    if (!translatePrompt || !translateLanguage.trim()) return;
+    const { word, context } = translatePrompt;
+    setTranslatePrompt(null);
+    handleTranslateRequest(word, context);
   };
 
   const handleExplainRequest = async (text: string) => {
@@ -535,7 +501,7 @@ export default function HomeScreen() {
           face = `@font-face{font-family:'${custom.family}';src:url(data:application/octet-stream;base64,${b64}) format('${custom.format}');}`;
           loadedFacesRef.current.add(custom.family);
         } catch {
-          css = FONT_STACKS.System; // file missing, fall back
+          css = FONT_STACKS.serif; // file missing, fall back
         }
       }
     }
@@ -651,7 +617,7 @@ export default function HomeScreen() {
             }
 
             if (msg.type === "translateRequest") {
-              handleTranslateRequest(msg.word, msg.context);
+              setTranslatePrompt({ word: msg.word, context: msg.context });
             }
 
             if (msg.type === "explainRequest") {
@@ -744,12 +710,6 @@ export default function HomeScreen() {
 
             {menuOpen && (
               <View style={[styles.dropdown, outlineStyle]}>
-                <Pressable
-                  style={styles.dropdownItem}
-                  onPress={() => handleMenuSelect(openTranslate)}
-                >
-                  <Text style={styles.dropdownText}>MagicTranslate</Text>
-                </Pressable>
                 <Pressable
                   style={styles.dropdownItem}
                   onPress={() => handleMenuSelect(() => setSearchOpen(true))}
@@ -858,7 +818,7 @@ export default function HomeScreen() {
           style={[styles.indexingBar, navStyle]}
           pointerEvents="none"
         >
-          <Text style={styles.barText}>Indexing book...</Text>
+          <Text style={styles.barText}>Preparing book for AI...</Text>
         </Animated.View>
       )}
 
@@ -949,45 +909,6 @@ export default function HomeScreen() {
         </Animated.View>
       )}
 
-      {/* MAGICTRANSLATE PANEL — solid dark panel listing available languages */}
-      {translateOpen && (
-        <Animated.View
-          style={[
-            styles.translatePanel,
-            {
-              width: PANEL_WIDTH,
-              transform: [{ translateX: translateSlideAnim }],
-            },
-          ]}
-        >
-          <View style={[styles.chatHeader, { paddingTop: insets.top + 12 }]}>
-            <Text style={styles.chatTitle}>MagicTranslate</Text>
-            <Pressable onPress={closeTranslate}>
-              <Text style={styles.closeText}>✕</Text>
-            </Pressable>
-          </View>
-
-          <FlatList
-            data={LANGUAGES}
-            keyExtractor={(item) => item}
-            renderItem={({ item }) => (
-              <Pressable
-                style={styles.languageRow}
-                onPress={() => {
-                  setTranslateLanguage(item);
-                  closeTranslate();
-                }}
-              >
-                <Text style={styles.languageText}>{item}</Text>
-                {translateLanguage === item && (
-                  <Text style={styles.languageCheck}>✓</Text>
-                )}
-              </Pressable>
-            )}
-          />
-        </Animated.View>
-      )}
-
       <Modal
         visible={!!recap}
         transparent
@@ -1012,7 +933,41 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={!!translatePrompt}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTranslatePrompt(null)}
+      >
+        <KeyboardAvoidingView
+          style={recapStyles.backdrop}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <View style={recapStyles.card}>
+            <Text style={recapStyles.title}>Enter language</Text>
+            <TextInput
+              style={recapStyles.input}
+              value={translateLanguage}
+              onChangeText={setTranslateLanguage}
+              placeholder="e.g. Spanish"
+              placeholderTextColor="#888"
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={submitTranslate}
+            />
+            <Pressable style={recapStyles.button} onPress={submitTranslate}>
+              <Text style={recapStyles.buttonText}>Translate</Text>
+            </Pressable>
+            <Pressable style={recapStyles.button} onPress={() => setTranslatePrompt(null)}>
+              <Text style={[recapStyles.buttonText, { color: "#999" }]}>Cancel</Text>
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
+
+
   );
 }
 
@@ -1036,4 +991,5 @@ const recapStyles = StyleSheet.create({
   body: { color: "#fff", fontSize: 16, lineHeight: 23 },
   button: { alignSelf: "center", paddingVertical: 8, paddingHorizontal: 16 },
   buttonText: { color: "#d20f39", fontWeight: "700", fontSize: 15 },
+  input: { color: "#fff", fontSize: 16, borderBottomWidth: 1, borderColor: "#d20f39", paddingVertical: 8 },
 });

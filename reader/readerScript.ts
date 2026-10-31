@@ -403,7 +403,7 @@ translateBtn.addEventListener("click",
         // if there is no active word selected, do nothing
         if (!activeWord) return;
 
-        translateBtn.innerText = "Translating…";
+        hideToolbar();
 
         // post a translation message to go react native webview (index.tsx). this is then forwarded to backend. 
         window.ReactNativeWebView.postMessage(
