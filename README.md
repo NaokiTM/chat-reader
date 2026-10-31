@@ -74,6 +74,11 @@ If you change native config or something looks stale, restart with a cleared cac
 npx expo start -c
 ```
 
+## Usage tips
+- Bookmarking a position can be done by clicking on the desired bookmark icon once, activating it and filling the icon in. 
+- Clicking on an active bookmark will send you to the saved position. 
+- To remove a bookmark, double tap on the desired bookmark which will clear the icon. 
+
 ## How it works
 
 1. You pick a book in the **Books** tab. The EPUB is copied into the app's documents folder.
